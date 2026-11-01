@@ -250,6 +250,34 @@ export async function setCachedTriage(owner, repo, prNumber, headSha, triageResu
   return triageResult;
 }
 
+export async function clearTriageCache() {
+  try {
+    if (kvs && typeof kvs.delete === 'function') {
+      await kvs.delete(TRIAGE_CACHE_KEY);
+    } else if (kvs && typeof kvs.set === 'function') {
+      await kvs.set(TRIAGE_CACHE_KEY, {});
+    }
+  } catch (err) {
+    console.warn('Forge KVS clear triage cache error, using fallback:', err.message);
+  }
+  triageCacheMemoryStore = {};
+  return { success: true };
+}
+
+export async function clearReconciledPRs() {
+  try {
+    if (kvs && typeof kvs.delete === 'function') {
+      await kvs.delete(RECONCILED_KEY);
+    } else if (kvs && typeof kvs.set === 'function') {
+      await kvs.set(RECONCILED_KEY, []);
+    }
+  } catch (err) {
+    console.warn('Forge KVS clear reconciled PRs error, using fallback:', err.message);
+  }
+  reconciledMemoryStore = [];
+  return { success: true };
+}
+
 export async function checkAndIncrementDemoQuota(maxCalls = 50) {
   let currentCount = 0;
   try {

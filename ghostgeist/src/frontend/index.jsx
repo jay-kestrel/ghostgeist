@@ -83,6 +83,7 @@ const App = () => {
   // Notifications
   const [successBanner, setSuccessBanner] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [isResettingDemo, setIsResettingDemo] = useState(false);
 
   // Load initial config
   const loadConfig = useCallback(async () => {
@@ -135,35 +136,26 @@ const App = () => {
           totalShadowPoints: 0
         });
         setHasScanned(true);
-
-        // Auto-triage the first untriaged PR in the background if Gemini is configured
-        const untriaged = loadedPrs.filter((p) => !p.triage);
-        if (activeCfg.hasGeminiApiKey && untriaged.length > 0) {
-          const topPr = untriaged[0];
-          invoke('triageSinglePR', {
-            pr: topPr,
-            owner: activeCfg.owner,
-            repo: activeCfg.repo,
-            projectKey
-          }).then((res) => {
-            if (res && res.success && res.triage) {
-              setPrs((prev) =>
-                prev.map((item) => (item.id === topPr.id ? { ...item, triage: res.triage } : item))
-              );
-              setStats((prev) => ({
-                ...prev,
-                totalShadowPoints: prev.totalShadowPoints + (res.triage.estimatedStoryPoints || 0)
-              }));
-            }
-          }).catch((err) => {
-            console.warn('Background auto-triage notice:', err.message);
-          });
-        }
       }
     } catch (err) {
       setErrorMessage(`Scanning failed: ${err.message || 'Unknown error'}`);
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  // Reset Demo State (wipes KVS triage cache and reconciled ledger)
+  const handleResetDemoData = async () => {
+    setIsResettingDemo(true);
+    setErrorMessage(null);
+    try {
+      await invoke('resetDemoData');
+      setSuccessBanner(null);
+      await handleScanPRs();
+    } catch (err) {
+      setErrorMessage(`Failed to reset demo state: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsResettingDemo(false);
     }
   };
 
@@ -515,6 +507,14 @@ const App = () => {
             </Text>
           </Stack>
           <Inline space="space.100">
+            <LoadingButton
+              appearance="subtle"
+              isLoading={isResettingDemo}
+              isDisabled={isScanning || isResettingDemo}
+              onClick={handleResetDemoData}
+            >
+              Reset Demo
+            </LoadingButton>
             <Button
               appearance="default"
               onClick={() => setIsSettingsOpen(true)}
@@ -869,6 +869,16 @@ const App = () => {
               <ModalFooter>
                 <Button appearance="subtle" onClick={() => setIsSettingsOpen(false)}>
                   Cancel
+                </Button>
+                <Button
+                  appearance="danger"
+                  isDisabled={isResettingDemo}
+                  onClick={async () => {
+                    setIsSettingsOpen(false);
+                    await handleResetDemoData();
+                  }}
+                >
+                  Reset Demo State
                 </Button>
                 <LoadingButton
                   appearance="primary"

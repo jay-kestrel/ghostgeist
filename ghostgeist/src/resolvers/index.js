@@ -10,7 +10,9 @@ import {
   recordReconciledPR,
   getCachedTriage,
   setCachedTriage,
-  checkAndIncrementDemoQuota
+  checkAndIncrementDemoQuota,
+  clearTriageCache,
+  clearReconciledPRs
 } from '../services/config.js';
 import { fetchPullRequests, fetchPullRequestFiles, analyzePRTracking, updatePullRequestWithIssue } from '../services/github.js';
 import { triagePRWithGemini } from '../services/gemini.js';
@@ -266,6 +268,17 @@ resolver.define('createJiraIssue', async (req) => {
     success: true,
     issue: issueResult
   };
+});
+
+/**
+ * Resolver: resetDemoData
+ * Clears the AI triage cache and reconciled PR ledger from Forge KVS.
+ * Returns all open PRs to an untracked, untriaged state for live demo presentation.
+ */
+resolver.define('resetDemoData', async () => {
+  await clearTriageCache();
+  await clearReconciledPRs();
+  return { success: true };
 });
 
 export const handler = resolver.getDefinitions();
