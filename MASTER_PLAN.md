@@ -86,8 +86,8 @@ In reality, engineering teams spend 20–30% of their bandwidth on **shadow work
 | **M4: Adversarial Audit** | Senior Security Reviewer identified 4 blockers (secret leakage, ADF empty string bug, Gemini model alignment, null inputs). | ✅ **Complete** |
 | **M5: Remediation & Verification** | Applied all fixes; 10/10 unit tests passing, 0 lint errors, deployed v3.0.0, upgraded live on `ghostgeist.atlassian.net`. | ✅ **Complete** |
 | **M6: Live Test Data** | Created branch `feat/optimize-auth-session-cache` and opened live untracked **[PR #1](https://github.com/jay-kestrel/ghostgeist/pull/1)** on GitHub. | ✅ **Complete** |
-| **M7: Live End-to-End Verification** | Confirm scan, triage, and issue reconciliation on `ghostgeist.atlassian.net`. | 🟡 **Next Up** |
-| **M8: Demo Video Production** | Screen recording, Fish Audio voiceover synthesis, and ffmpeg assembly into a 2-minute demo. | ⏳ Pending |
+| **M7: Live End-to-End Verification** | Confirm scan, triage, and issue reconciliation on `ghostgeist.atlassian.net`. | ✅ **Complete** |
+| **M8: Demo Video Production** | Screen recording, Fish Audio voiceover synthesis, and ffmpeg assembly into a 2-minute demo. | 🟡 **Next Up** |
 | **M9: Devpost & Marketplace Package** | Submission copy, Forge installation link generation, Marketplace review ticket submission. | ⏳ Pending |
 
 ---

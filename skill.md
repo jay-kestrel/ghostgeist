@@ -1,0 +1,1 @@
+skills/ghostgeist/skill.md

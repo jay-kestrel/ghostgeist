@@ -2,11 +2,17 @@
  * GhostGeist Backend Resolvers
  * Bridges the UI Kit frontend with GitHub, Jira, and Gemini AI services.
  */
-import Resolver from '@forge/resolver';
+import ResolverPackage from '@forge/resolver';
 import { getAppConfig, saveAppConfig } from '../services/config';
 import { fetchPullRequests, fetchPullRequestFiles, analyzePRTracking } from '../services/github';
 import { triagePRWithGemini } from '../services/gemini';
 import { createJiraIssue } from '../services/jira';
+
+const Resolver = (typeof ResolverPackage === 'function')
+  ? ResolverPackage
+  : (typeof ResolverPackage?.default === 'function')
+    ? ResolverPackage.default
+    : (ResolverPackage?.default?.default || ResolverPackage);
 
 const resolver = new Resolver();
 

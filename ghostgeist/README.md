@@ -1,39 +1,120 @@
-# Forge Hello World
+# GhostGeist — Atlassian Forge App Package
 
-This project contains a Forge app written in Javascript that displays `Hello World!` in a Jira project page. 
+> **Note**: For the full project overview, problem statement, architecture diagrams, and hackathon presentation, please see the [GhostGeist Root README](../README.md).
 
-See [developer.atlassian.com/platform/forge/](https://developer.atlassian.com/platform/forge) for documentation and tutorials explaining Forge.
+This directory contains the production Atlassian Forge application package for **GhostGeist**, an Engineering Shadow Work Reconciliation Platform submitted to the **Atlassian Codegeist 2026 Hackathon**.
 
-## Requirements
+[![Atlassian Forge](https://img.shields.io/badge/Atlassian_Forge-v15.0.0-0052CC?logo=atlassian&logoColor=white)](https://developer.atlassian.com/platform/forge/)
+[![Jira Cloud](https://img.shields.io/badge/Jira_Cloud-REST_v3-0052CC?logo=jira&logoColor=white)](https://ghostgeist.atlassian.net)
+[![UI Kit 2](https://img.shields.io/badge/@forge/react-UI_Kit_2-blue)](https://developer.atlassian.com/platform/forge/ui-kit/)
+[![Node.js](https://img.shields.io/badge/Node.js-24.x-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](../LICENSE)
 
-See [Set up Forge](https://developer.atlassian.com/platform/forge/set-up-forge/) for instructions to get set up.
+---
 
-## Quick start
-- Install dependecies
-```
+## 📦 Package Manifest Overview (`manifest.yml`)
+
+GhostGeist combines a native Jira Software Project Page with an Atlassian Rovo Model Context Protocol (MCP) server:
+
+* **`jira:projectPage`** (`ghostgeist-triage-project-page`):
+  * Render Mode: `native`
+  * Frontend: `src/frontend/index.jsx` (built with UI Kit 2 `@forge/react`)
+  * Resolver: `src/resolvers/index.handler`
+  * Navigation: "GhostGeist Triage" in Jira Project sidebar
+* **`rovo:mcp`** (`ghostgeist-mcp`):
+  * Tools: `get-untracked-prs`, `triage-pr-gemini`, `create-jira-ticket-from-pr`
+  * Handler: `src/mcp/index.handler`
+* **Runtime Specifications**:
+  * Engine: `nodejs24.x`
+  * Memory: `256MB`
+  * Architecture: `arm64`
+* **Permissions & Egress**:
+  * Scopes: `read:jira-work`, `write:jira-work`, `read:jira-user`, `storage:app`
+  * Outbound Egress: `api.github.com`, `generativelanguage.googleapis.com`
+
+---
+
+## 🛠️ Development & Deployment Workflow
+
+### Prerequisites
+* Node.js 22.x or 24.x
+* Atlassian Forge CLI: `npm install -g @forge/cli`
+* Authenticated developer session: `forge login`
+
+### 1. Install Dependencies
+```bash
 npm install
 ```
-- Modify your app frontend by editing the `src/frontend/index.jsx` file.
 
-- Modify your app backend by editing the `src/resolvers/index.js` file to define resolver functions. See [Forge resolvers](https://developer.atlassian.com/platform/forge/runtime-reference/custom-ui-resolver/) for documentation on resolver functions.
+### 2. Validate App Manifest & Code
+```bash
+# Run Forge CLI manifest and schema linter
+forge lint
 
-- Build and deploy your app by running:
+# Run ESLint
+npm run lint
 ```
+
+### 3. Run Automated Unit Test Suite
+```bash
+npm test
+```
+*Executes the 10-test suite covering regex Jira key matching, ADF document tree generation, secret isolation, and Gemini 3.8/3.5 fallback logic.*
+
+### 4. Deploy to Development Environment
+```bash
 forge deploy
 ```
 
-- Install your app in an Atlassian site by running:
-```
-forge install
+### 5. Install or Upgrade Site Installation
+```bash
+# Initial installation
+forge install --site your-site.atlassian.net --product jira
+
+# Upgrade existing installation with scope consent
+forge install --upgrade -e development -s your-site.atlassian.net -p jira --confirm-scopes --non-interactive
 ```
 
-- Develop your app by running `forge tunnel` to proxy invocations locally:
+### 6. View Live Runtime Logs
+```bash
+forge logs -e development
 ```
+
+### 7. Local Tunneling (Development)
+```bash
 forge tunnel
 ```
 
-### Notes
-- Use the `forge deploy` command when you want to persist code changes.
-- Use the `forge install` command when you want to install the app on a new site.
-- Once the app is installed on a site, the site picks up the new app changes you deploy without needing to rerun the install command.
+---
 
+## 📂 Source Directory Layout
+
+```
+ghostgeist/
+├── manifest.yml           # App manifest declaring Jira page, MCP tools, permissions
+├── package.json           # Dependencies: @forge/api, @forge/react, @forge/kvs
+├── TECHNICAL_SPEC.md      # Low-level API specs, ADF examples, and empirical logs
+├── src/
+│   ├── frontend/
+│   │   └── index.jsx      # UI Kit 2 Jira Project Page Command Center
+│   ├── resolvers/
+│   │   └── index.js       # Bridge resolvers (getConfig, saveConfig, scan, triage, create)
+│   ├── mcp/
+│   │   └── index.js       # Action handlers for rovo:mcp tool invocations
+│   └── services/
+│       ├── config.js      # Forge KVS settings storage with zero-leakage security
+│       ├── gemini.js      # Gemini 3.8 Flash structured JSON schema client
+│       ├── github.js      # GitHub REST API v3 and regex issue tracking analyzer
+│       └── jira.js        # Jira REST API v3 ADF builder & remote link binder
+└── tests/
+    └── services.test.mjs  # Unit tests with Node.js built-in test runner
+```
+
+---
+
+## 📖 Additional Documentation
+
+* **Master Project Guide**: [Root README.md](../README.md)
+* **Master Execution Plan & Milestones**: [MASTER_PLAN.md](../MASTER_PLAN.md)
+* **API Payloads & Technical Specifications**: [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md)
+* **AI Agent MCP Skill Definition**: [skills/ghostgeist/skill.md](../skills/ghostgeist/skill.md)
