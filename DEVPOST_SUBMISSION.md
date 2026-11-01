@@ -9,7 +9,7 @@
 3. **Best Marketplace Published App** (100% Native Forge UI Kit 2, Zero-Egress Leakage, Marketplace Ready)  
 
 **Atlassian Forge App ID:** `ari:cloud:ecosystem::app/8f916e76-19dc-490d-8440-d6ff0cf9122d`  
-**Live Demonstration Site:** `https://ghostgeist.atlassian.net`  
+**Live Demonstration Site:** [https://ghostgeist.atlassian.net/.../GhostGeist](https://ghostgeist.atlassian.net/jira/software/projects/GHOST/apps/8f916e76-19dc-490d-8440-d6ff0cf9122d/00436796-5548-469e-b60e-93b709397200)  
 **Public Repository:** `https://github.com/jay-kestrel/ghostgeist`  
 **Open-Source Agent Skill:** [`skills/ghostgeist/skill.md`](skills/ghostgeist/skill.md)  
 

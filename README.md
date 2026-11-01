@@ -14,9 +14,9 @@
 [![UI Kit 2](https://img.shields.io/badge/@forge/react-UI_Kit_2-blue?style=for-the-badge)](https://developer.atlassian.com/platform/forge/ui-kit/)
 [![Node.js](https://img.shields.io/badge/Node.js-24.x_LTS-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-[![Unit Tests](https://img.shields.io/badge/Tests-10%2F10_Passing-brightgreen?style=for-the-badge)](#testing--verification)
+[![Unit Tests](https://img.shields.io/badge/Tests-25%2F25_Passing-brightgreen?style=for-the-badge)](#testing--verification)
 
-[Live Deployment](https://ghostgeist.atlassian.net/) • [GitHub Repository](https://github.com/jay-kestrel/ghostgeist) • [Hackathon Devpost](https://codegeist2026.devpost.com/) • [MCP Skill](skills/ghostgeist/skill.md)
+[Live Deployment](https://ghostgeist.atlassian.net/jira/software/projects/GHOST/apps/8f916e76-19dc-490d-8440-d6ff0cf9122d/00436796-5548-469e-b60e-93b709397200) • [GitHub Repository](https://github.com/jay-kestrel/ghostgeist) • [Hackathon Devpost](https://codegeist2026.devpost.com/) • [MCP Skill](skills/ghostgeist/skill.md)
 
 </div>
 

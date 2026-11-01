@@ -5,7 +5,7 @@
 *Submission Deadline:* **December 22, 2026 @ 12:00 PM PST**  
 *Target Grand Category:* **Apps for Software Teams** ($15,000 1st / $8,000 2nd / $5,000 3rd)  
 *Target Bonus Categories:* **Best App with Atlassian MCP** ($1,500), **Best Agents — Rovo/Assignable Agents** ($1,500) & **Best Marketplace Published App** ($1,500)  
-*Live Site:* [ghostgeist.atlassian.net](https://ghostgeist.atlassian.net/)  
+*Live Site:* [ghostgeist.atlassian.net (GhostGeist Triage)](https://ghostgeist.atlassian.net/jira/software/projects/GHOST/apps/8f916e76-19dc-490d-8440-d6ff0cf9122d/00436796-5548-469e-b60e-93b709397200)  
 *Repository:* [github.com/jay-kestrel/ghostgeist](https://github.com/jay-kestrel/ghostgeist)  
 *Devpost & Judge Evaluation Guide:* [DEVPOST_SUBMISSION.md](DEVPOST_SUBMISSION.md)  
 
