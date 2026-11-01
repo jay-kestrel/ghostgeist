@@ -1,17 +1,111 @@
 modules:
   jira:projectPage:
-    - key: ghostgeist-hello-world-project-page
+    - key: ghostgeist-triage-project-page
       resource: main
       resolver:
         function: resolver
       render: native
-      title: ghostgeist
+      title: GhostGeist Triage
+
+  rovo:mcp:
+    - key: ghostgeist-mcp
+      name: GhostGeist MCP Server
+      tools:
+        - get-untracked-prs
+        - triage-pr-gemini
+        - create-jira-ticket-from-pr
+
+  action:
+    - key: get-untracked-prs
+      name: Get Untracked GitHub PRs
+      function: mcpHandler
+      actionVerb: GET
+      description: Scans open GitHub Pull Requests that have no associated Jira issue key.
+      inputs:
+        owner:
+          title: Owner
+          type: string
+          required: false
+          description: GitHub repository owner (defaults to app config)
+        repo:
+          title: Repository
+          type: string
+          required: false
+          description: GitHub repository name (defaults to app config)
+
+    - key: triage-pr-gemini
+      name: Triage Pull Request with Gemini
+      function: mcpHandler
+      actionVerb: GET
+      description: Uses Google Gemini AI to analyze a PR diff/body and synthesize a
+        structured Jira ticket proposal.
+      inputs:
+        prNumber:
+          title: PR Number
+          type: integer
+          required: true
+          description: GitHub Pull Request number to inspect
+
+    - key: create-jira-ticket-from-pr
+      name: Create Jira Issue from PR
+      function: mcpHandler
+      actionVerb: CREATE
+      description: Creates a Jira issue from an untracked PR and links the PR URL as a
+        remote link.
+      inputs:
+        projectKey:
+          title: Jira Project Key
+          type: string
+          required: true
+          description: Target Jira project key (e.g. GHOST)
+        summary:
+          title: Summary
+          type: string
+          required: true
+          description: Issue title
+        description:
+          title: Description
+          type: string
+          required: true
+          description: Markdown or text description
+        issueType:
+          title: Issue Type
+          type: string
+          required: true
+          description: Task, Bug, or Story
+        prUrl:
+          title: PR Web URL
+          type: string
+          required: true
+          description: GitHub PR URL
+        prNumber:
+          title: PR Number
+          type: integer
+          required: false
+          description: GitHub PR number
+
   function:
     - key: resolver
-      handler: index.handler
+      handler: resolvers/index.handler
+    - key: mcpHandler
+      handler: mcp/index.handler
+
 resources:
   - key: main
     path: src/frontend/index.jsx
+
+permissions:
+  scopes:
+    - read:jira-work
+    - write:jira-work
+    - read:jira-user
+    - storage:app
+  external:
+    fetch:
+      backend:
+        - address: api.github.com
+        - address: generativelanguage.googleapis.com
+
 app:
   runtime:
     name: nodejs24.x
