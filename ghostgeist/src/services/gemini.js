@@ -122,7 +122,7 @@ async function callGeminiEndpoint(modelName, apiKey, promptText, customFetch = n
   };
 
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const timeoutId = controller ? setTimeout(() => controller.abort(), 12000) : null;
+  const timeoutId = controller ? setTimeout(() => controller.abort(), 7000) : null;
 
   let response;
   try {
@@ -151,8 +151,15 @@ async function callGeminiEndpoint(modelName, apiKey, promptText, customFetch = n
     throw new Error(`Empty content returned by Gemini (${modelName})`);
   }
 
+  let cleanJson = rawJson.trim();
+  if (cleanJson.startsWith('```json')) {
+    cleanJson = cleanJson.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+  } else if (cleanJson.startsWith('```')) {
+    cleanJson = cleanJson.replace(/^```\s*/, '').replace(/\s*```$/, '');
+  }
+
   try {
-    return JSON.parse(rawJson);
+    return JSON.parse(cleanJson);
   } catch (err) {
     throw new Error(`Failed to parse Gemini JSON output: ${err.message}. Raw: ${rawJson}`);
   }
@@ -160,7 +167,7 @@ async function callGeminiEndpoint(modelName, apiKey, promptText, customFetch = n
 
 /**
  * Analyzes a pull request with Google Gemini.
- * Attempts gemini-3.8-flash first, falling back to gemini-3.5-flash and gemini-3.5-flash-lite.
+ * Attempts gemini-3.8-flash first, falling back to gemini-3.6-flash, gemini-3.5-flash, and gemini-3.5-flash-lite.
  *
  * @param {Object} pr - GitHub PR object
  * @param {string} apiKey - Gemini API Key
@@ -175,7 +182,7 @@ export async function triagePRWithGemini(pr, apiKey, diffSummary = '', customFet
   }
 
   const promptText = buildPrompt(pr, diffSummary, jiraContext);
-  const models = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+  const models = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
 
   const validList = (Array.isArray(jiraContext?.validIssueTypes) && jiraContext.validIssueTypes.length > 0)
     ? [...new Set(jiraContext.validIssueTypes.filter((t) => typeof t === 'string' && t.trim().length > 0))]

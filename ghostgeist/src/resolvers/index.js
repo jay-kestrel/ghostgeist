@@ -69,7 +69,8 @@ resolver.define('saveConfig', async (req) => {
 /**
  * Resolver: scanUntrackedPRs
  * Scans open GitHub PRs and detects untracked shadow work.
- * Incorporates KVS reconciled ledger, commit-SHA cache, and optional parallel Gemini auto-triage.
+ * Incorporates KVS reconciled ledger and commit-SHA triage cache.
+ * Executes in sub-second time to strictly prevent Forge 25-second execution timeouts.
  */
 resolver.define('scanUntrackedPRs', async (req) => {
   const { payload, context } = req;
@@ -89,79 +90,31 @@ resolver.define('scanUntrackedPRs', async (req) => {
 
   const untrackedPRs = [];
   let trackedCount = 0;
+  let totalShadowPoints = 0;
 
   for (const pr of allPRs) {
     const analysis = analyzePRTracking(pr, projectKey, reconciledPRs);
     if (analysis.isUntracked) {
+      let cachedTriage = null;
+      try {
+        const headSha = pr.head?.sha;
+        cachedTriage = await getCachedTriage(owner, repo, pr.number, headSha);
+      } catch (cacheErr) {
+        console.warn(`Cache lookup failed for PR #${pr.number}: ${cacheErr.message}`);
+      }
+
+      if (cachedTriage) {
+        totalShadowPoints += (cachedTriage?.estimatedStoryPoints || 0);
+      }
+
       untrackedPRs.push({
         ...pr,
         tracking: analysis,
-        triage: null
+        triage: cachedTriage
       });
     } else {
       trackedCount++;
     }
-  }
-
-  let totalShadowPoints = 0;
-  if (payload?.autoTriage && config.geminiApiKey) {
-    let jiraContext = null;
-    if (projectKey) {
-      try {
-        jiraContext = await fetchProjectContext(projectKey);
-      } catch (err) {
-        console.warn(`Could not fetch Jira project context: ${err.message}`);
-      }
-    }
-
-    const prsToTriage = untrackedPRs.slice(0, 3);
-    await Promise.all(
-      prsToTriage.map(async (pr) => {
-        try {
-          const headSha = pr.head?.sha;
-          const cachedTriage = await getCachedTriage(owner, repo, pr.number, headSha);
-          if (cachedTriage) {
-            pr.triage = cachedTriage;
-            totalShadowPoints += (cachedTriage?.estimatedStoryPoints || 0);
-            return;
-          }
-
-          // On cache miss with built-in demo key, enforce quota cap
-          if (config.usingBuiltInGeminiKey) {
-            const quota = await checkAndIncrementDemoQuota(50);
-            if (!quota || !quota.allowed) {
-              throw new Error('Built-in judge demo quota (50/50 live AI triages) reached. Please enter your own Google Gemini API key in Settings for unlimited use.');
-            }
-          }
-
-          let diffSummary = '';
-          try {
-            const filesResult = await fetchPullRequestFiles({
-              owner,
-              repo,
-              token,
-              prNumber: pr.number
-            });
-            diffSummary = filesResult?.summary || '';
-          } catch (fileErr) {
-            console.warn(`Could not fetch diff for PR #${pr.number}: ${fileErr.message}`);
-          }
-
-          const triageResult = await triagePRWithGemini(
-            pr,
-            config.geminiApiKey,
-            diffSummary,
-            null,
-            jiraContext
-          );
-          await setCachedTriage(owner, repo, pr.number, headSha, triageResult);
-          pr.triage = triageResult;
-          totalShadowPoints += (triageResult?.estimatedStoryPoints || 0);
-        } catch (triageErr) {
-          console.warn(`Auto-triage error on PR #${pr.number}: ${triageErr.message}`);
-        }
-      })
-    );
   }
 
   return {

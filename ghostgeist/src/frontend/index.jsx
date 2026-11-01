@@ -122,19 +122,43 @@ const App = () => {
       const result = await invoke('scanUntrackedPRs', {
         owner: activeCfg.owner,
         repo: activeCfg.repo,
-        projectKey,
-        autoTriage: Boolean(activeCfg.hasGeminiApiKey)
+        projectKey
       });
 
       if (result && result.success) {
-        setPrs(result.prs || []);
+        const loadedPrs = result.prs || [];
+        setPrs(loadedPrs);
         setStats(result.stats || {
           totalCount: 0,
-          untrackedCount: result.prs?.length || 0,
+          untrackedCount: loadedPrs.length,
           trackedCount: 0,
           totalShadowPoints: 0
         });
         setHasScanned(true);
+
+        // Auto-triage the first untriaged PR in the background if Gemini is configured
+        const untriaged = loadedPrs.filter((p) => !p.triage);
+        if (activeCfg.hasGeminiApiKey && untriaged.length > 0) {
+          const topPr = untriaged[0];
+          invoke('triageSinglePR', {
+            pr: topPr,
+            owner: activeCfg.owner,
+            repo: activeCfg.repo,
+            projectKey
+          }).then((res) => {
+            if (res && res.success && res.triage) {
+              setPrs((prev) =>
+                prev.map((item) => (item.id === topPr.id ? { ...item, triage: res.triage } : item))
+              );
+              setStats((prev) => ({
+                ...prev,
+                totalShadowPoints: prev.totalShadowPoints + (res.triage.estimatedStoryPoints || 0)
+              }));
+            }
+          }).catch((err) => {
+            console.warn('Background auto-triage notice:', err.message);
+          });
+        }
       }
     } catch (err) {
       setErrorMessage(`Scanning failed: ${err.message || 'Unknown error'}`);

@@ -262,6 +262,68 @@ test('triagePRWithGemini: uses header-based auth and gemini-3 line models', asyn
   assert.equal(firstCall.options.headers['x-goog-api-key'], 'AIzaTestApiKey');
 });
 
+test('triagePRWithGemini: falls back to gemini-3.6-flash when gemini-3.8-flash returns 503', async () => {
+  const capturedCalls = [];
+
+  const mockFetch = async (url, options) => {
+    capturedCalls.push({ url, options });
+    if (url.includes('gemini-3.8-flash')) {
+      return {
+        ok: false,
+        status: 503,
+        text: async () => JSON.stringify({
+          error: {
+            code: 503,
+            message: 'This model is currently experiencing high demand.',
+            status: 'UNAVAILABLE'
+          }
+        })
+      };
+    }
+
+    return {
+      ok: true,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    suggestedTitle: 'Fallback Synthesized Title',
+                    suggestedDescription: 'Fallback Synthesized Description',
+                    issueType: 'Task',
+                    estimatedStoryPoints: 2,
+                    reason: 'Synthesized Reason via gemini-3.6-flash'
+                  })
+                }
+              ]
+            }
+          }
+        ]
+      })
+    };
+  };
+
+  const pr = {
+    number: 100,
+    title: 'Handle high load spike',
+    body: 'Details here',
+    user: { login: 'dev' },
+    head: { ref: 'feat/load' },
+    base: { ref: 'main' }
+  };
+
+  const result = await triagePRWithGemini(pr, 'AIzaTestApiKey', '', mockFetch);
+
+  assert.equal(result.suggestedTitle, 'Fallback Synthesized Title');
+  assert.equal(result.issueType, 'Task');
+  assert.equal(result.estimatedStoryPoints, 2);
+  assert.equal(capturedCalls.length, 2);
+  assert.ok(capturedCalls[0].url.includes('gemini-3.8-flash'), 'First attempt was gemini-3.8-flash');
+  assert.ok(capturedCalls[1].url.includes('gemini-3.6-flash'), 'Second attempt cascaded to gemini-3.6-flash');
+});
+
 // --- NEW AUDIT VERIFICATION TESTS ---
 
 test('api.asUser() priority: attempts asUser first, falling back to asApp on failure', async () => {
