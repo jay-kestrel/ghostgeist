@@ -3,7 +3,15 @@
  * Bridges the UI Kit frontend with GitHub, Jira, and Gemini AI services.
  */
 import ResolverPackage from '@forge/resolver';
-import { getAppConfig, saveAppConfig, getReconciledPRs, recordReconciledPR } from '../services/config.js';
+import {
+  getAppConfig,
+  saveAppConfig,
+  getReconciledPRs,
+  recordReconciledPR,
+  getCachedTriage,
+  setCachedTriage,
+  checkAndIncrementDemoQuota
+} from '../services/config.js';
 import { fetchPullRequests, fetchPullRequestFiles, analyzePRTracking, updatePullRequestWithIssue } from '../services/github.js';
 import { triagePRWithGemini } from '../services/gemini.js';
 import { createJiraIssue, fetchProjectContext } from '../services/jira.js';
@@ -18,7 +26,7 @@ const resolver = new Resolver();
 
 /**
  * Resolver: getConfig
- * Returns current GhostGeist repository and API configuration.
+ * Returns current GhostGeist repository, API credentials, and built-in key status.
  */
 resolver.define('getConfig', async () => {
   const config = await getAppConfig();
@@ -27,6 +35,7 @@ resolver.define('getConfig', async () => {
     repo: config.repo,
     hasGithubToken: Boolean(config.githubToken),
     hasGeminiApiKey: Boolean(config.geminiApiKey),
+    usingBuiltInGeminiKey: Boolean(config.usingBuiltInGeminiKey),
     isConfigured: Boolean(config.owner && config.repo)
   };
 });
@@ -51,6 +60,7 @@ resolver.define('saveConfig', async (req) => {
       repo: updated.repo,
       hasGithubToken: Boolean(updated.githubToken),
       hasGeminiApiKey: Boolean(updated.geminiApiKey),
+      usingBuiltInGeminiKey: Boolean(updated.usingBuiltInGeminiKey),
       isConfigured: Boolean(updated.owner && updated.repo)
     }
   };
@@ -59,7 +69,7 @@ resolver.define('saveConfig', async (req) => {
 /**
  * Resolver: scanUntrackedPRs
  * Scans open GitHub PRs and detects untracked shadow work.
- * Incorporates KVS reconciled ledger and optional parallel Gemini auto-triage.
+ * Incorporates KVS reconciled ledger, commit-SHA cache, and optional parallel Gemini auto-triage.
  */
 resolver.define('scanUntrackedPRs', async (req) => {
   const { payload, context } = req;
@@ -108,6 +118,22 @@ resolver.define('scanUntrackedPRs', async (req) => {
     await Promise.all(
       prsToTriage.map(async (pr) => {
         try {
+          const headSha = pr.head?.sha;
+          const cachedTriage = await getCachedTriage(owner, repo, pr.number, headSha);
+          if (cachedTriage) {
+            pr.triage = cachedTriage;
+            totalShadowPoints += (cachedTriage?.estimatedStoryPoints || 0);
+            return;
+          }
+
+          // On cache miss with built-in demo key, enforce quota cap
+          if (config.usingBuiltInGeminiKey) {
+            const quota = await checkAndIncrementDemoQuota(50);
+            if (!quota || !quota.allowed) {
+              throw new Error('Built-in judge demo quota (50/50 live AI triages) reached. Please enter your own Google Gemini API key in Settings for unlimited use.');
+            }
+          }
+
           let diffSummary = '';
           try {
             const filesResult = await fetchPullRequestFiles({
@@ -128,6 +154,7 @@ resolver.define('scanUntrackedPRs', async (req) => {
             null,
             jiraContext
           );
+          await setCachedTriage(owner, repo, pr.number, headSha, triageResult);
           pr.triage = triageResult;
           totalShadowPoints += (triageResult?.estimatedStoryPoints || 0);
         } catch (triageErr) {
@@ -151,7 +178,7 @@ resolver.define('scanUntrackedPRs', async (req) => {
 
 /**
  * Resolver: triageSinglePR
- * On-demand Gemini triage for a specific PR with diff context and Jira context.
+ * On-demand Gemini triage for a specific PR with diff context, Jira context, and commit SHA caching.
  */
 resolver.define('triageSinglePR', async (req) => {
   const { payload, context } = req;
@@ -170,6 +197,24 @@ resolver.define('triageSinglePR', async (req) => {
 
   if (!geminiApiKey) {
     throw new Error('Gemini API key is not configured. Please set your Gemini API key in Settings.');
+  }
+
+  const headSha = pr.head?.sha || payload?.headSha;
+  const cachedTriage = await getCachedTriage(owner, repo, pr.number, headSha);
+  if (cachedTriage) {
+    return {
+      success: true,
+      triage: cachedTriage,
+      fromCache: true
+    };
+  }
+
+  // Enforce demo quota on live Gemini call when using built-in key
+  if (config.usingBuiltInGeminiKey) {
+    const quota = await checkAndIncrementDemoQuota(50);
+    if (!quota || !quota.allowed) {
+      throw new Error('Built-in judge demo quota (50/50 live AI triages) reached. Please enter your own Google Gemini API key in Settings for unlimited use.');
+    }
   }
 
   let jiraContext = null;
@@ -198,6 +243,7 @@ resolver.define('triageSinglePR', async (req) => {
   }
 
   const triage = await triagePRWithGemini(pr, geminiApiKey, diffSummary, null, jiraContext);
+  await setCachedTriage(owner, repo, pr.number, headSha, triage);
 
   return {
     success: true,

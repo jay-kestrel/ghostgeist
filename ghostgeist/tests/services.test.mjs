@@ -4,7 +4,19 @@ import api from '@forge/api';
 
 import { analyzePRTracking, updatePullRequestWithIssue } from '../src/services/github.js';
 import { buildAdfDescription, createJiraIssue, fetchProjectContext } from '../src/services/jira.js';
-import { saveAppConfig, getAppConfig, recordReconciledPR, getReconciledPRs, resetMemoryStoreForTesting } from '../src/services/config.js';
+import {
+  saveAppConfig,
+  getAppConfig,
+  recordReconciledPR,
+  getReconciledPRs,
+  resetMemoryStoreForTesting,
+  getCachedTriage,
+  setCachedTriage,
+  checkAndIncrementDemoQuota,
+  resetDemoQuotaForTests,
+  resetTriageCacheForTests,
+  DEFAULT_CONFIG
+} from '../src/services/config.js';
 import { triagePRWithGemini } from '../src/services/gemini.js';
 
 test('analyzePRTracking: detects untracked PR with no Jira key', () => {
@@ -517,4 +529,153 @@ test('fetchProjectContext: gracefully falls back in test environments', async ()
   assert.ok(Array.isArray(context.validIssueTypes));
   assert.ok(context.validIssueTypes.includes('Task'));
   assert.ok(Array.isArray(context.recentIssues));
+});
+
+test('getCachedTriage / setCachedTriage: stores and retrieves triage results keyed by commit SHA', async () => {
+  resetTriageCacheForTests();
+
+  const owner = 'jay-kestrel';
+  const repo = 'ghostgeist';
+  const prNumber = 101;
+  const shaA = 'commit-sha-aaa111';
+  const shaB = 'commit-sha-bbb222';
+
+  // 1. Initial lookup -> miss
+  const miss1 = await getCachedTriage(owner, repo, prNumber, shaA);
+  assert.equal(miss1, null, 'Expected initial cache lookup to be a miss');
+
+  // 2. Set cached triage for shaA
+  const triageA = {
+    suggestedTitle: 'Optimize SQL Query',
+    suggestedDescription: 'Indexes users table for speed',
+    issueType: 'Task',
+    estimatedStoryPoints: 3,
+    reason: 'Performance enhancement'
+  };
+  await setCachedTriage(owner, repo, prNumber, shaA, triageA);
+
+  // 3. Lookup with exact match (owner, repo, prNumber, shaA) -> hit
+  const hitA = await getCachedTriage(owner, repo, prNumber, shaA);
+  assert.ok(hitA, 'Expected cache hit for matching SHA');
+  assert.equal(hitA.suggestedTitle, 'Optimize SQL Query');
+  assert.equal(hitA.estimatedStoryPoints, 3);
+
+  // 4. Lookup with new commit SHA (shaB) -> miss (invalidates cache on new commit push)
+  const missOnShaUpdate = await getCachedTriage(owner, repo, prNumber, shaB);
+  assert.equal(missOnShaUpdate, null, 'Cache must miss when head commit SHA changes');
+
+  // 5. Lookup for different PR number with same SHA -> miss
+  const missOtherPR = await getCachedTriage(owner, repo, 102, shaA);
+  assert.equal(missOtherPR, null, 'Cache must miss for different PR number');
+
+  // 6. Set cached triage for shaB and verify independent entry
+  const triageB = {
+    suggestedTitle: 'Optimize SQL Query & Add Metrics',
+    suggestedDescription: 'Adds Prometheus metrics',
+    issueType: 'Story',
+    estimatedStoryPoints: 5,
+    reason: 'Expanded scope in new commit'
+  };
+  await setCachedTriage(owner, repo, prNumber, shaB, triageB);
+
+  const hitB = await getCachedTriage(owner, repo, prNumber, shaB);
+  assert.equal(hitB.suggestedTitle, 'Optimize SQL Query & Add Metrics');
+  assert.equal(hitB.estimatedStoryPoints, 5);
+
+  // Previous commit entry remains accessible if queried
+  const hitAgainA = await getCachedTriage(owner, repo, prNumber, shaA);
+  assert.equal(hitAgainA.suggestedTitle, 'Optimize SQL Query');
+
+  // Fallback to "latest" if sha is omitted
+  await setCachedTriage(owner, repo, 200, null, triageA);
+  const hitLatest = await getCachedTriage(owner, repo, 200, null);
+  assert.equal(hitLatest.suggestedTitle, 'Optimize SQL Query');
+});
+
+test('checkAndIncrementDemoQuota: enforces cap and denies calls exceeding quota', async () => {
+  resetDemoQuotaForTests();
+
+  const cap = 3;
+
+  // First 3 calls must succeed
+  const c1 = await checkAndIncrementDemoQuota(cap);
+  assert.equal(c1.allowed, true);
+  assert.equal(c1.count, 1);
+
+  const c2 = await checkAndIncrementDemoQuota(cap);
+  assert.equal(c2.allowed, true);
+  assert.equal(c2.count, 2);
+
+  const c3 = await checkAndIncrementDemoQuota(cap);
+  assert.equal(c3.allowed, true);
+  assert.equal(c3.count, 3);
+
+  // 4th call must be denied (count would exceed cap)
+  const c4 = await checkAndIncrementDemoQuota(cap);
+  assert.equal(c4.allowed, false);
+  assert.equal(c4.count, 3);
+
+  // 5th call also denied
+  const c5 = await checkAndIncrementDemoQuota(cap);
+  assert.equal(c5.allowed, false);
+  assert.equal(c5.count, 3);
+
+  // Reset helper clears quota
+  resetDemoQuotaForTests();
+  const resetCall = await checkAndIncrementDemoQuota(cap);
+  assert.equal(resetCall.allowed, true);
+  assert.equal(resetCall.count, 1);
+});
+
+test('usingBuiltInGeminiKey: tracks built-in fallback vs custom key override', async () => {
+  const origDefaultKey = DEFAULT_CONFIG.geminiApiKey;
+  const origEnvKey = process.env.GEMINI_API_KEY;
+
+  try {
+    // 1. Simulate environment where built-in fallback key is active
+    DEFAULT_CONFIG.geminiApiKey = 'built-in-judge-test-key';
+    process.env.GEMINI_API_KEY = 'built-in-judge-test-key';
+    resetMemoryStoreForTesting();
+
+    let config = await getAppConfig();
+    assert.equal(config.usingBuiltInGeminiKey, true, 'Should indicate using built-in key when no custom key configured');
+    assert.equal(config.geminiApiKey, 'built-in-judge-test-key');
+
+    // 2. User provides their own custom API key in Settings
+    const saveResult = await saveAppConfig({
+      owner: 'acme-corp',
+      repo: 'web-service',
+      geminiApiKey: 'custom-judge-api-key-999'
+    });
+    assert.equal(saveResult.usingBuiltInGeminiKey, false, 'Should flag custom key is active');
+    assert.equal(saveResult.geminiApiKey, 'custom-judge-api-key-999');
+
+    config = await getAppConfig();
+    assert.equal(config.usingBuiltInGeminiKey, false, 'getAppConfig must report usingBuiltInGeminiKey=false');
+    assert.equal(config.geminiApiKey, 'custom-judge-api-key-999');
+
+    // 3. User updates another setting (e.g. repo name) without entering a new key
+    await saveAppConfig({
+      repo: 'web-service-v2',
+      geminiApiKey: ''
+    });
+
+    config = await getAppConfig();
+    assert.equal(config.usingBuiltInGeminiKey, false, 'Existing custom key is preserved, still custom');
+    assert.equal(config.geminiApiKey, 'custom-judge-api-key-999');
+    assert.equal(config.repo, 'web-service-v2');
+
+    // 4. When neither built-in nor custom key is set
+    DEFAULT_CONFIG.geminiApiKey = '';
+    process.env.GEMINI_API_KEY = '';
+    resetMemoryStoreForTesting();
+
+    config = await getAppConfig();
+    assert.equal(config.usingBuiltInGeminiKey, false, 'No key active, usingBuiltInGeminiKey should be false');
+    assert.equal(config.geminiApiKey, '');
+  } finally {
+    DEFAULT_CONFIG.geminiApiKey = origDefaultKey;
+    process.env.GEMINI_API_KEY = origEnvKey;
+    resetMemoryStoreForTesting();
+  }
 });

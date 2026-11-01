@@ -2,7 +2,14 @@
  * GhostGeist MCP Action Handler
  * Exposes GhostGeist tools to Atlassian Rovo and AI Agent ecosystems via Forge rovo:mcp.
  */
-import { getAppConfig, getReconciledPRs, recordReconciledPR } from '../services/config.js';
+import {
+  getAppConfig,
+  getReconciledPRs,
+  recordReconciledPR,
+  getCachedTriage,
+  setCachedTriage,
+  checkAndIncrementDemoQuota
+} from '../services/config.js';
 import { fetchPullRequests, fetchSinglePR, fetchPullRequestFiles, analyzePRTracking } from '../services/github.js';
 import { triagePRWithGemini } from '../services/gemini.js';
 import { createJiraIssue } from '../services/jira.js';
@@ -62,9 +69,37 @@ export async function handler(payload, context) {
       }
 
       const pr = await fetchSinglePR({ owner, repo, token, prNumber });
+      const headSha = pr.head?.sha || inputs.headSha;
+
+      // Check commit-SHA triage cache before invoking Gemini
+      const cachedTriage = await getCachedTriage(owner, repo, pr.number, headSha);
+      if (cachedTriage) {
+        return {
+          success: true,
+          pr: {
+            number: pr.number,
+            title: pr.title,
+            url: pr.html_url,
+            author: pr.user?.login
+          },
+          triage: cachedTriage,
+          fromCache: true
+        };
+      }
+
+      // Check quota cap on cache miss when using built-in key
+      const isUsingBuiltIn = (!inputs.geminiApiKey || inputs.geminiApiKey === config.geminiApiKey) && config.usingBuiltInGeminiKey;
+      if (isUsingBuiltIn) {
+        const quota = await checkAndIncrementDemoQuota(50);
+        if (!quota || !quota.allowed) {
+          throw new Error('Built-in judge demo quota (50/50 live AI triages) reached. Please enter your own Google Gemini API key in Settings for unlimited use.');
+        }
+      }
+
       const diffResult = await fetchPullRequestFiles({ owner, repo, token, prNumber });
 
       const triage = await triagePRWithGemini(pr, geminiApiKey, diffResult.summary);
+      await setCachedTriage(owner, repo, pr.number, headSha, triage);
 
       return {
         success: true,

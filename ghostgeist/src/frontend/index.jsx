@@ -42,6 +42,7 @@ const App = () => {
     repo: '',
     hasGithubToken: false,
     hasGeminiApiKey: false,
+    usingBuiltInGeminiKey: false,
     isConfigured: false
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -815,12 +816,24 @@ const App = () => {
 
                   <Stack space="space.050">
                     <Text>
-                      Google Gemini API Key {config.hasGeminiApiKey ? '(configured)' : '(Required for AI Triage)'}
+                      Google Gemini API Key {
+                        config.usingBuiltInGeminiKey
+                          ? '(Optional — Built-in Judge Demo Key Active)'
+                          : config.hasGeminiApiKey
+                            ? '(Optional — Custom Key Configured)'
+                            : '(Required for AI Triage)'
+                      }
                     </Text>
                     <Textfield
                       name="geminiApiKey"
                       type="password"
-                      placeholder={config.hasGeminiApiKey ? "(configured)" : "AIzaSy..."}
+                      placeholder={
+                        config.usingBuiltInGeminiKey
+                          ? '(Optional — Built-in Judge Demo Key Active)'
+                          : config.hasGeminiApiKey
+                            ? '(configured)'
+                            : 'AIzaSy...'
+                      }
                       value={settingsForm.geminiApiKey}
                       onChange={(e) =>
                         setSettingsForm((prev) => ({ ...prev, geminiApiKey: e.target.value }))
