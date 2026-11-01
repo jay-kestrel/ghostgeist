@@ -1,0 +1,20 @@
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+notes.txt
+
+# Scraping & Temporary files
+*.html
+*.log
+codegeist_*.txt
+project_gallery.html
+
+# Node / Dependencies
+node_modules/
+dist/
+build/
+.forge/
+
+# macOS
+.DS_Store

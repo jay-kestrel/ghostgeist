@@ -1,0 +1,20 @@
+modules:
+  jira:projectPage:
+    - key: ghostgeist-hello-world-project-page
+      resource: main
+      resolver:
+        function: resolver
+      render: native
+      title: ghostgeist
+  function:
+    - key: resolver
+      handler: index.handler
+resources:
+  - key: main
+    path: src/frontend/index.jsx
+app:
+  runtime:
+    name: nodejs24.x
+    memoryMB: 256
+    architecture: arm64
+  id: ari:cloud:ecosystem::app/8f916e76-19dc-490d-8440-d6ff0cf9122d
