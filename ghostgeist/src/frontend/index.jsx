@@ -83,7 +83,6 @@ const App = () => {
   // Notifications
   const [successBanner, setSuccessBanner] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [isResettingDemo, setIsResettingDemo] = useState(false);
 
   // Load initial config
   const loadConfig = useCallback(async () => {
@@ -141,21 +140,6 @@ const App = () => {
       setErrorMessage(`Scanning failed: ${err.message || 'Unknown error'}`);
     } finally {
       setIsScanning(false);
-    }
-  };
-
-  // Reset Demo State (wipes KVS triage cache and reconciled ledger)
-  const handleResetDemoData = async () => {
-    setIsResettingDemo(true);
-    setErrorMessage(null);
-    try {
-      await invoke('resetDemoData');
-      setSuccessBanner(null);
-      await handleScanPRs();
-    } catch (err) {
-      setErrorMessage(`Failed to reset demo state: ${err.message || 'Unknown error'}`);
-    } finally {
-      setIsResettingDemo(false);
     }
   };
 
@@ -507,14 +491,6 @@ const App = () => {
             </Text>
           </Stack>
           <Inline space="space.100">
-            <LoadingButton
-              appearance="subtle"
-              isLoading={isResettingDemo}
-              isDisabled={isScanning || isResettingDemo}
-              onClick={handleResetDemoData}
-            >
-              Reset Demo
-            </LoadingButton>
             <Button
               appearance="default"
               onClick={() => setIsSettingsOpen(true)}
@@ -869,16 +845,6 @@ const App = () => {
               <ModalFooter>
                 <Button appearance="subtle" onClick={() => setIsSettingsOpen(false)}>
                   Cancel
-                </Button>
-                <Button
-                  appearance="danger"
-                  isDisabled={isResettingDemo}
-                  onClick={async () => {
-                    setIsSettingsOpen(false);
-                    await handleResetDemoData();
-                  }}
-                >
-                  Reset Demo State
                 </Button>
                 <LoadingButton
                   appearance="primary"

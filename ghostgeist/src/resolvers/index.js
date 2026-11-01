@@ -97,22 +97,10 @@ resolver.define('scanUntrackedPRs', async (req) => {
   for (const pr of allPRs) {
     const analysis = analyzePRTracking(pr, projectKey, reconciledPRs);
     if (analysis.isUntracked) {
-      let cachedTriage = null;
-      try {
-        const headSha = pr.head?.sha;
-        cachedTriage = await getCachedTriage(owner, repo, pr.number, headSha);
-      } catch (cacheErr) {
-        console.warn(`Cache lookup failed for PR #${pr.number}: ${cacheErr.message}`);
-      }
-
-      if (cachedTriage) {
-        totalShadowPoints += (cachedTriage?.estimatedStoryPoints || 0);
-      }
-
       untrackedPRs.push({
         ...pr,
         tracking: analysis,
-        triage: cachedTriage
+        triage: null
       });
     } else {
       trackedCount++;
