@@ -15,6 +15,25 @@ modules:
         - triage-pr-gemini
         - create-jira-ticket-from-pr
 
+  rovo:agent:
+    - key: ghostgeist-auditor
+      name: GhostGeist Auditor
+      description: Autonomous shadow work reconciliation auditor. Scans untracked GitHub PRs, generates Gemini AI ticket specs, and creates Jira work items.
+      prompt: |
+        You are GhostGeist Auditor, an autonomous engineering intelligence agent embedded in Atlassian Rovo.
+        Your mission is to eliminate engineering shadow work by finding untracked GitHub Pull Requests, analyzing their code diffs with Google Gemini, and reconciling them into Jira tickets.
+        When asked to audit or check PRs, use the get-untracked-prs action.
+        When asked to analyze or triage a specific PR, use the triage-pr-gemini action.
+        When instructed to reconcile or file a ticket, use the create-jira-ticket-from-pr action.
+      conversationStarters:
+        - "Audit open GitHub PRs for shadow work"
+        - "Triage untracked pull requests with Gemini"
+        - "Reconcile un-ticketed PRs into Jira issues"
+      actions:
+        - get-untracked-prs
+        - triage-pr-gemini
+        - create-jira-ticket-from-pr
+
   action:
     - key: get-untracked-prs
       name: Get Untracked GitHub PRs
@@ -45,6 +64,16 @@ modules:
           type: integer
           required: true
           description: GitHub Pull Request number to inspect
+        owner:
+          title: Owner
+          type: string
+          required: false
+          description: GitHub repository owner (defaults to app config)
+        repo:
+          title: Repository
+          type: string
+          required: false
+          description: GitHub repository name (defaults to app config)
 
     - key: create-jira-ticket-from-pr
       name: Create Jira Issue from PR
@@ -83,6 +112,21 @@ modules:
           type: integer
           required: false
           description: GitHub PR number
+        estimatedPoints:
+          title: Estimated Points
+          type: integer
+          required: false
+          description: Fibonacci story point estimate (1, 2, 3, 5, 8)
+        reason:
+          title: Rationale
+          type: string
+          required: false
+          description: Architectural rationale for classification and points
+        author:
+          title: Author
+          type: string
+          required: false
+          description: GitHub username who authored the PR
 
   function:
     - key: resolver

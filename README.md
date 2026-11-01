@@ -342,7 +342,7 @@ GhostGeist exports a first-class Model Context Protocol (MCP) server declared in
 #### 3. `create-jira-ticket-from-pr`
 * **Purpose**: Creates an ADF-formatted Jira issue with bi-directional remote links.
 * **Verb**: `CREATE`
-* **Parameters**: `projectKey` *(string, required)*, `summary` *(string, required)*, `description` *(string, required)*, `issueType` *(string, required)*, `prUrl` *(string, required)*, `prNumber` *(integer, optional)*
+* **Parameters**: `projectKey` *(string, required)*, `summary` *(string, required)*, `description` *(string, required)*, `issueType` *(string, required)*, `prUrl` *(string, required)*, `prNumber` *(integer, optional)*, `estimatedPoints` *(integer, optional)*, `reason` *(string, optional)*, `author` *(string, optional)*
 
 ### Adding GhostGeist to Cursor or Claude Desktop
 Add the following snippet to your `claude_desktop_config.json` or Cursor MCP settings:
@@ -354,9 +354,8 @@ Add the following snippet to your `claude_desktop_config.json` or Cursor MCP set
       "command": "npx",
       "args": [
         "-y",
-        "@forge/mcp-proxy",
-        "--app-id",
-        "ari:cloud:ecosystem::app/8f916e76-19dc-490d-8440-d6ff0cf9122d"
+        "mcp-remote",
+        "https://mcp.atlassian.com/v2/mcp"
       ]
     }
   }

@@ -2,10 +2,10 @@
  * GhostGeist MCP Action Handler
  * Exposes GhostGeist tools to Atlassian Rovo and AI Agent ecosystems via Forge rovo:mcp.
  */
-import { getAppConfig } from '../services/config';
-import { fetchPullRequests, fetchSinglePR, fetchPullRequestFiles, analyzePRTracking } from '../services/github';
-import { triagePRWithGemini } from '../services/gemini';
-import { createJiraIssue } from '../services/jira';
+import { getAppConfig, getReconciledPRs, recordReconciledPR } from '../services/config.js';
+import { fetchPullRequests, fetchSinglePR, fetchPullRequestFiles, analyzePRTracking } from '../services/github.js';
+import { triagePRWithGemini } from '../services/gemini.js';
+import { createJiraIssue } from '../services/jira.js';
 
 export async function handler(payload, context) {
   const inputs = payload?.inputs || payload || {};
@@ -24,7 +24,8 @@ export async function handler(payload, context) {
       }
 
       const allPRs = await fetchPullRequests({ owner, repo, token, state: 'open' });
-      const untrackedPRs = allPRs.filter((pr) => analyzePRTracking(pr).isUntracked);
+      const reconciledPRs = await getReconciledPRs();
+      const untrackedPRs = allPRs.filter((pr) => analyzePRTracking(pr, null, reconciledPRs).isUntracked);
 
       return {
         success: true,
@@ -78,7 +79,17 @@ export async function handler(payload, context) {
     }
 
     case 'create-jira-ticket-from-pr': {
-      const { projectKey, summary, description, issueType, prUrl, prNumber } = inputs;
+      const {
+        projectKey,
+        summary,
+        description,
+        issueType,
+        prUrl,
+        prNumber,
+        estimatedPoints,
+        reason,
+        author
+      } = inputs;
 
       if (!projectKey || !summary || !description) {
         throw new Error('projectKey, summary, and description are required.');
@@ -90,13 +101,29 @@ export async function handler(payload, context) {
         description,
         issueType: issueType || 'Task',
         prUrl,
-        prNumber: prNumber ? Number(prNumber) : undefined
+        prNumber: prNumber ? Number(prNumber) : undefined,
+        author,
+        estimatedPoints: estimatedPoints ? Number(estimatedPoints) : undefined,
+        reason
+      });
+
+      const rawSiteUrl = context?.siteUrl || 'ghostgeist.atlassian.net';
+      const cleanSiteUrl = rawSiteUrl.replace(/^https?:\/\//, '');
+      const issueUrl = `https://${cleanSiteUrl}/browse/${result.key}`;
+
+      await recordReconciledPR({
+        owner: inputs.owner || config.owner,
+        repo: inputs.repo || config.repo,
+        prNumber: Number(prNumber),
+        issueKey: result.key,
+        issueUrl
       });
 
       return {
         success: true,
         issueKey: result.key,
-        issueId: result.id
+        issueId: result.id,
+        issueUrl
       };
     }
 

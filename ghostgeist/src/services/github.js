@@ -1,6 +1,7 @@
 /**
  * GhostGeist GitHub Service
- * Interacts with GitHub REST API to fetch pull requests and detect untracked work.
+ * Interacts with GitHub REST API to fetch pull requests, detect untracked work,
+ * and perform bi-directional write-back to GitHub PRs.
  */
 import { fetch as forgeFetch } from '@forge/api';
 
@@ -30,13 +31,104 @@ function buildHeaders(token) {
 
 /**
  * Detects whether a PR is linked to a Jira issue key.
- * Checks title, head branch ref, and body description.
+ * Checks reconciledMap ledger first, then title, head branch ref, and body description.
  *
  * @param {Object} pr - The GitHub PR object
  * @param {string} [targetProjectKey] - Optional target Jira project key (e.g. 'GHOST')
+ * @param {Array|Map|Object} [reconciledMap=null] - Reconciled PR ledger or mapping
  * @returns {{ isUntracked: boolean, matchedKey: string | null }}
  */
-export function analyzePRTracking(pr, targetProjectKey) {
+export function analyzePRTracking(pr, targetProjectKey, reconciledMap = null) {
+  if (reconciledMap && pr && pr.number != null) {
+    const prNum = Number(pr.number);
+    let match = null;
+
+    if (Array.isArray(reconciledMap)) {
+      match = reconciledMap.find((item) => Number(item?.prNumber) === prNum);
+    } else if (reconciledMap instanceof Map) {
+      let prOwner = pr.owner || pr.base?.repo?.owner?.login || '';
+      let prRepo = pr.repo || pr.base?.repo?.name || '';
+      if ((!prOwner || !prRepo) && typeof pr.html_url === 'string') {
+        const matchUrl = pr.html_url.match(/github\.com\/([^/]+)\/([^/]+)\/pull/i);
+        if (matchUrl) {
+          prOwner = prOwner || matchUrl[1];
+          prRepo = prRepo || matchUrl[2];
+        }
+      }
+
+      const candidateKeys = [];
+      if (prOwner && prRepo) {
+        candidateKeys.push(`${prOwner}/${prRepo}#${prNum}`);
+        candidateKeys.push(`${prOwner.toLowerCase()}/${prRepo.toLowerCase()}#${prNum}`);
+      }
+      candidateKeys.push(`#${prNum}`);
+      candidateKeys.push(`${prNum}`);
+      candidateKeys.push(prNum);
+
+      for (const k of candidateKeys) {
+        if (reconciledMap.has(k)) {
+          match = reconciledMap.get(k);
+          break;
+        }
+      }
+
+      if (!match) {
+        for (const [key, value] of reconciledMap.entries()) {
+          const strKey = String(key);
+          if (strKey === `${prNum}` || strKey === `#${prNum}` || strKey.endsWith(`#${prNum}`)) {
+            match = value;
+            break;
+          }
+        }
+      }
+    } else if (typeof reconciledMap === 'object') {
+      let prOwner = pr.owner || pr.base?.repo?.owner?.login || '';
+      let prRepo = pr.repo || pr.base?.repo?.name || '';
+      if ((!prOwner || !prRepo) && typeof pr.html_url === 'string') {
+        const matchUrl = pr.html_url.match(/github\.com\/([^/]+)\/([^/]+)\/pull/i);
+        if (matchUrl) {
+          prOwner = prOwner || matchUrl[1];
+          prRepo = prRepo || matchUrl[2];
+        }
+      }
+
+      const candidateKeys = [];
+      if (prOwner && prRepo) {
+        candidateKeys.push(`${prOwner}/${prRepo}#${prNum}`);
+        candidateKeys.push(`${prOwner.toLowerCase()}/${prRepo.toLowerCase()}#${prNum}`);
+      }
+      candidateKeys.push(`#${prNum}`);
+      candidateKeys.push(`${prNum}`);
+
+      for (const k of candidateKeys) {
+        if (Object.prototype.hasOwnProperty.call(reconciledMap, k) && reconciledMap[k] !== undefined) {
+          match = reconciledMap[k];
+          break;
+        }
+      }
+
+      if (!match) {
+        for (const [key, value] of Object.entries(reconciledMap)) {
+          const strKey = String(key);
+          if (strKey === `${prNum}` || strKey === `#${prNum}` || strKey.endsWith(`#${prNum}`)) {
+            match = value;
+            break;
+          }
+        }
+      }
+    }
+
+    if (match) {
+      const rawKey = (match && (match.issueKey || match.key)) || match;
+      if (rawKey) {
+        return {
+          isUntracked: false,
+          matchedKey: String(rawKey).toUpperCase()
+        };
+      }
+    }
+  }
+
   const genericJiraPattern = /\b([A-Za-z][A-Za-z0-9]+-\d+)\b/i;
   const targetPattern = (targetProjectKey && targetProjectKey.trim().length > 0)
     ? new RegExp(`\\b(${targetProjectKey.trim()}-\\d+)\\b`, 'i')
@@ -70,6 +162,91 @@ export function analyzePRTracking(pr, targetProjectKey) {
     isUntracked: false,
     matchedKey: matchedKey.toUpperCase()
   };
+}
+
+/**
+ * Updates a GitHub Pull Request title and body to reference a newly created Jira issue.
+ * Performs a bi-directional write-back if token has repository write permissions.
+ *
+ * @param {Object} params
+ * @param {string} params.owner
+ * @param {string} params.repo
+ * @param {string} params.token
+ * @param {number|string} params.prNumber
+ * @param {string} params.issueKey
+ * @param {string} [params.issueUrl]
+ * @param {string} [params.currentTitle]
+ * @param {string} [params.currentBody]
+ * @returns {Promise<boolean>} True if update succeeded, false otherwise
+ */
+export async function updatePullRequestWithIssue({
+  owner,
+  repo,
+  token,
+  prNumber,
+  issueKey,
+  issueUrl,
+  currentTitle,
+  currentBody,
+  customFetch
+} = {}) {
+  if (!token || typeof token !== 'string' || !token.trim()) {
+    return false;
+  }
+  if (!owner || !repo || !prNumber || !issueKey) {
+    return false;
+  }
+
+  const cleanIssueKey = String(issueKey).trim().toUpperCase();
+  if (!cleanIssueKey) {
+    return false;
+  }
+
+  const titleStr = typeof currentTitle === 'string' ? currentTitle : '';
+  const bodyStr = typeof currentBody === 'string' ? currentBody : '';
+
+  // Determine updated title:
+  // If currentTitle already contains issueKey (e.g. [KEY] or includes KEY), keep currentTitle.
+  // Otherwise: `[${issueKey}] ${currentTitle || `PR #${prNumber}`}`
+  let updatedTitle = titleStr;
+  if (!titleStr.toUpperCase().includes(cleanIssueKey)) {
+    updatedTitle = `[${cleanIssueKey}] ${titleStr || `PR #${prNumber}`}`;
+  }
+
+  // Determine updated body:
+  const trackedText = `\n\n---\n**Tracked in Jira:** [${cleanIssueKey}](${issueUrl || ''})`;
+  let updatedBody = bodyStr;
+  if (!bodyStr.toUpperCase().includes(cleanIssueKey) && !bodyStr.includes(trackedText)) {
+    updatedBody = `${bodyStr}${trackedText}`;
+  }
+
+  try {
+    const fetchClient = customFetch || getFetch();
+    const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${prNumber}`;
+
+    const headers = buildHeaders(token);
+    headers['Content-Type'] = 'application/json';
+
+    const response = await fetchClient(url, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({
+        title: updatedTitle,
+        body: updatedBody
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.warn(`Could not update GitHub PR #${prNumber} with Jira link (${response.status}): ${errText}`);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.warn(`Exception updating GitHub PR #${prNumber} with Jira link:`, err.message);
+    return false;
+  }
 }
 
 /**

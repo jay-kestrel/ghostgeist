@@ -3,10 +3,10 @@
  * Bridges the UI Kit frontend with GitHub, Jira, and Gemini AI services.
  */
 import ResolverPackage from '@forge/resolver';
-import { getAppConfig, saveAppConfig } from '../services/config';
-import { fetchPullRequests, fetchPullRequestFiles, analyzePRTracking } from '../services/github';
-import { triagePRWithGemini } from '../services/gemini';
-import { createJiraIssue } from '../services/jira';
+import { getAppConfig, saveAppConfig, getReconciledPRs, recordReconciledPR } from '../services/config.js';
+import { fetchPullRequests, fetchPullRequestFiles, analyzePRTracking, updatePullRequestWithIssue } from '../services/github.js';
+import { triagePRWithGemini } from '../services/gemini.js';
+import { createJiraIssue, fetchProjectContext } from '../services/jira.js';
 
 const Resolver = (typeof ResolverPackage === 'function')
   ? ResolverPackage
@@ -59,7 +59,7 @@ resolver.define('saveConfig', async (req) => {
 /**
  * Resolver: scanUntrackedPRs
  * Scans open GitHub PRs and detects untracked shadow work.
- * Triage is performed on-demand per PR to avoid Forge 25s execution timeouts.
+ * Incorporates KVS reconciled ledger and optional parallel Gemini auto-triage.
  */
 resolver.define('scanUntrackedPRs', async (req) => {
   const { payload, context } = req;
@@ -75,12 +75,13 @@ resolver.define('scanUntrackedPRs', async (req) => {
   }
 
   const allPRs = await fetchPullRequests({ owner, repo, token, state: 'open' });
+  const reconciledPRs = await getReconciledPRs();
 
   const untrackedPRs = [];
   let trackedCount = 0;
 
   for (const pr of allPRs) {
-    const analysis = analyzePRTracking(pr, projectKey);
+    const analysis = analyzePRTracking(pr, projectKey, reconciledPRs);
     if (analysis.isUntracked) {
       untrackedPRs.push({
         ...pr,
@@ -92,6 +93,50 @@ resolver.define('scanUntrackedPRs', async (req) => {
     }
   }
 
+  let totalShadowPoints = 0;
+  if (payload?.autoTriage && config.geminiApiKey) {
+    let jiraContext = null;
+    if (projectKey) {
+      try {
+        jiraContext = await fetchProjectContext(projectKey);
+      } catch (err) {
+        console.warn(`Could not fetch Jira project context: ${err.message}`);
+      }
+    }
+
+    const prsToTriage = untrackedPRs.slice(0, 3);
+    await Promise.all(
+      prsToTriage.map(async (pr) => {
+        try {
+          let diffSummary = '';
+          try {
+            const filesResult = await fetchPullRequestFiles({
+              owner,
+              repo,
+              token,
+              prNumber: pr.number
+            });
+            diffSummary = filesResult?.summary || '';
+          } catch (fileErr) {
+            console.warn(`Could not fetch diff for PR #${pr.number}: ${fileErr.message}`);
+          }
+
+          const triageResult = await triagePRWithGemini(
+            pr,
+            config.geminiApiKey,
+            diffSummary,
+            null,
+            jiraContext
+          );
+          pr.triage = triageResult;
+          totalShadowPoints += (triageResult?.estimatedStoryPoints || 0);
+        } catch (triageErr) {
+          console.warn(`Auto-triage error on PR #${pr.number}: ${triageErr.message}`);
+        }
+      })
+    );
+  }
+
   return {
     success: true,
     prs: untrackedPRs,
@@ -99,17 +144,17 @@ resolver.define('scanUntrackedPRs', async (req) => {
       totalCount: allPRs.length,
       untrackedCount: untrackedPRs.length,
       trackedCount,
-      totalShadowPoints: 0
+      totalShadowPoints
     }
   };
 });
 
 /**
  * Resolver: triageSinglePR
- * On-demand Gemini triage for a specific PR with diff context.
+ * On-demand Gemini triage for a specific PR with diff context and Jira context.
  */
 resolver.define('triageSinglePR', async (req) => {
-  const { payload } = req;
+  const { payload, context } = req;
   const config = await getAppConfig();
 
   const pr = payload?.pr;
@@ -121,9 +166,19 @@ resolver.define('triageSinglePR', async (req) => {
   const repo = payload?.repo || config.repo;
   const token = config.githubToken;
   const geminiApiKey = config.geminiApiKey;
+  const projectKey = payload?.projectKey || context?.extension?.project?.key || '';
 
   if (!geminiApiKey) {
     throw new Error('Gemini API key is not configured. Please set your Gemini API key in Settings.');
+  }
+
+  let jiraContext = null;
+  if (projectKey) {
+    try {
+      jiraContext = await fetchProjectContext(projectKey);
+    } catch (err) {
+      console.warn(`Could not fetch project context: ${err.message}`);
+    }
   }
 
   // Fetch file diff for deeper analysis
@@ -136,13 +191,13 @@ resolver.define('triageSinglePR', async (req) => {
         token,
         prNumber: pr.number
       });
-      diffSummary = filesResult.summary;
+      diffSummary = filesResult?.summary || '';
     } catch (err) {
       console.warn(`Could not load files for PR #${pr.number}: ${err.message}`);
     }
   }
 
-  const triage = await triagePRWithGemini(pr, geminiApiKey, diffSummary);
+  const triage = await triagePRWithGemini(pr, geminiApiKey, diffSummary, null, jiraContext);
 
   return {
     success: true,
@@ -152,15 +207,19 @@ resolver.define('triageSinglePR', async (req) => {
 
 /**
  * Resolver: createJiraIssue
- * Creates a Jira issue from PR metadata and links the GitHub PR.
+ * Creates a Jira issue from PR metadata, records reconciled PR, and updates GitHub PR.
  */
 resolver.define('createJiraIssue', async (req) => {
   const { payload, context } = req;
+  const config = await getAppConfig();
   const projectKey = payload.projectKey || context?.extension?.project?.key;
 
   if (!projectKey) {
     throw new Error('Jira project key could not be determined. Please specify a target project.');
   }
+
+  const owner = payload.owner || config.owner;
+  const repo = payload.repo || config.repo;
 
   const issueResult = await createJiraIssue({
     projectKey,
@@ -173,6 +232,36 @@ resolver.define('createJiraIssue', async (req) => {
     estimatedPoints: payload.estimatedPoints,
     reason: payload.reason
   });
+
+  const siteUrl = context?.siteUrl || 'https://ghostgeist.atlassian.net';
+  const browseUrl = siteUrl.startsWith('http')
+    ? `${siteUrl}/browse/${issueResult.key}`
+    : `https://${siteUrl}/browse/${issueResult.key}`;
+
+  await recordReconciledPR({
+    owner,
+    repo,
+    prNumber: payload.prNumber,
+    issueKey: issueResult.key,
+    issueUrl: browseUrl
+  });
+
+  if (config.githubToken) {
+    try {
+      await updatePullRequestWithIssue({
+        owner,
+        repo,
+        token: config.githubToken,
+        prNumber: payload.prNumber,
+        issueKey: issueResult.key,
+        issueUrl: browseUrl,
+        currentTitle: payload.summary,
+        currentBody: payload.description
+      });
+    } catch (ghErr) {
+      console.warn(`GitHub write-back failed: ${ghErr.message}`);
+    }
+  }
 
   return {
     success: true,

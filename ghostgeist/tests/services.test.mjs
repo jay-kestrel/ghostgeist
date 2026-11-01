@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import api from '@forge/api';
 
-import { analyzePRTracking } from '../src/services/github.js';
-import { buildAdfDescription } from '../src/services/jira.js';
-import { saveAppConfig, getAppConfig } from '../src/services/config.js';
+import { analyzePRTracking, updatePullRequestWithIssue } from '../src/services/github.js';
+import { buildAdfDescription, createJiraIssue, fetchProjectContext } from '../src/services/jira.js';
+import { saveAppConfig, getAppConfig, recordReconciledPR, getReconciledPRs, resetMemoryStoreForTesting } from '../src/services/config.js';
 import { triagePRWithGemini } from '../src/services/gemini.js';
 
 test('analyzePRTracking: detects untracked PR with no Jira key', () => {
@@ -127,7 +128,7 @@ test('buildAdfDescription: handles empty or null input gracefully', () => {
 test('buildAdfDescription: ADF spec strictly prevents empty string text nodes', () => {
   // Test with null author and blank reason/points
   const adf1 = buildAdfDescription('Some description', 'https://github.com/org/repo/pull/1', 1, null, null, '');
-  
+
   function assertNoEmptyTextNodes(nodes) {
     for (const node of nodes) {
       if (node.type === 'text') {
@@ -247,4 +248,273 @@ test('triagePRWithGemini: uses header-based auth and gemini-3 line models', asyn
   assert.ok(firstCall.url.includes('gemini-3.8-flash'), 'Should first call gemini-3.8-flash');
   // Must use x-goog-api-key header
   assert.equal(firstCall.options.headers['x-goog-api-key'], 'AIzaTestApiKey');
+});
+
+// --- NEW AUDIT VERIFICATION TESTS ---
+
+test('api.asUser() priority: attempts asUser first, falling back to asApp on failure', async () => {
+  const callOrder = [];
+  const origAsUser = api.asUser;
+  const origAsApp = api.asApp;
+
+  try {
+    api.asUser = () => ({
+      requestJira: async () => {
+        callOrder.push('asUser');
+        return { ok: false, status: 403, text: async () => 'Forbidden' };
+      }
+    });
+
+    api.asApp = () => ({
+      requestJira: async () => {
+        callOrder.push('asApp');
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({ id: '10001', key: 'GHOST-99', self: 'https://test/issue/10001' })
+        };
+      }
+    });
+
+    const result = await createJiraIssue({
+      projectKey: 'GHOST',
+      summary: 'Fallback test issue',
+      description: 'Testing fallback from asUser to asApp',
+      issueType: 'Task'
+    });
+
+    assert.equal(result.key, 'GHOST-99');
+    assert.deepEqual(callOrder, ['asUser', 'asApp']);
+  } finally {
+    api.asUser = origAsUser;
+    api.asApp = origAsApp;
+  }
+});
+
+test('api.asUser() priority: attributes to asUser when asUser succeeds', async () => {
+  const callOrder = [];
+  const origAsUser = api.asUser;
+  const origAsApp = api.asApp;
+
+  try {
+    api.asUser = () => ({
+      requestJira: async () => {
+        callOrder.push('asUser');
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({ id: '10002', key: 'GHOST-100', self: 'https://test/issue/10002' })
+        };
+      }
+    });
+
+    api.asApp = () => ({
+      requestJira: async () => {
+        callOrder.push('asApp');
+        return { ok: true, json: async () => ({}) };
+      }
+    });
+
+    const result = await createJiraIssue({
+      projectKey: 'GHOST',
+      summary: 'Direct user test issue',
+      description: 'Testing direct user attribution',
+      issueType: 'Bug'
+    });
+
+    assert.equal(result.key, 'GHOST-100');
+    assert.deepEqual(callOrder, ['asUser']);
+  } finally {
+    api.asUser = origAsUser;
+    api.asApp = origAsApp;
+  }
+});
+
+test('Reconciled PR persistence in KVS & analyzePRTracking filtering', async () => {
+  const entry = await recordReconciledPR({
+    owner: 'jay-kestrel',
+    repo: 'ghostgeist',
+    prNumber: 77,
+    issueKey: 'GHOST-77',
+    issueUrl: 'https://ghostgeist.atlassian.net/browse/GHOST-77'
+  });
+
+  assert.equal(entry.prNumber, 77);
+  assert.equal(entry.issueKey, 'GHOST-77');
+
+  const reconciledList = await getReconciledPRs();
+  assert.ok(Array.isArray(reconciledList));
+  const found = reconciledList.find((r) => r.prNumber === 77);
+  assert.ok(found);
+  assert.equal(found.issueKey, 'GHOST-77');
+
+  // PR 77 has NO Jira key in title, branch, or body
+  const prReconciled = {
+    number: 77,
+    title: 'Clean up dead code',
+    head: { ref: 'chore/cleanup' },
+    body: 'Removes unused variables.'
+  };
+
+  const trackingResult = analyzePRTracking(prReconciled, 'GHOST', reconciledList);
+  assert.equal(trackingResult.isUntracked, false);
+  assert.equal(trackingResult.matchedKey, 'GHOST-77');
+
+  // PR 78 is not in reconciledList and has no Jira key
+  const prUntracked = {
+    number: 78,
+    title: 'Clean up dead code',
+    head: { ref: 'chore/cleanup-dead-code' },
+    body: 'Removes more unused variables.'
+  };
+
+  const trackingResult2 = analyzePRTracking(prUntracked, 'GHOST', reconciledList);
+  assert.equal(trackingResult2.isUntracked, true);
+  assert.equal(trackingResult2.matchedKey, null);
+});
+
+test('triagePRWithGemini: grounds in jiraContext and identifies matchedExistingIssueKey', async () => {
+  let capturedPayload = null;
+
+  const mockFetch = async (url, options) => {
+    capturedPayload = JSON.parse(options.body);
+    return {
+      ok: true,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    suggestedTitle: 'Resolved Session Leak',
+                    suggestedDescription: 'Fixes session leak described in GHOST-12',
+                    issueType: 'Bug',
+                    estimatedStoryPoints: 5,
+                    reason: 'Critical bug impacting session manager',
+                    matchedExistingIssueKey: 'GHOST-12'
+                  })
+                }
+              ]
+            }
+          }
+        ]
+      })
+    };
+  };
+
+  const pr = {
+    number: 12,
+    title: 'fix session leak',
+    body: 'addresses the redis session retention problem',
+    user: { login: 'octocat' },
+    head: { ref: 'fix/session-leak' },
+    base: { ref: 'main' }
+  };
+
+  const jiraContext = {
+    projectKey: 'GHOST',
+    validIssueTypes: ['Task', 'Bug', 'Story'],
+    recentIssues: [
+      { key: 'GHOST-12', summary: 'Memory leak in session manager', issueType: 'Bug', status: 'In Progress' }
+    ]
+  };
+
+  const result = await triagePRWithGemini(pr, 'AIzaTestApiKey', '', mockFetch, jiraContext);
+
+  assert.equal(result.suggestedTitle, 'Resolved Session Leak');
+  assert.equal(result.issueType, 'Bug');
+  assert.equal(result.estimatedStoryPoints, 5);
+  assert.equal(result.matchedExistingIssueKey, 'GHOST-12');
+
+  // Verify prompt included Atlassian Project Context
+  const promptText = capturedPayload.contents[0].parts[0].text;
+  assert.ok(promptText.includes('Atlassian Project Context'));
+  assert.ok(promptText.includes('GHOST-12'));
+  assert.ok(promptText.includes('Memory leak in session manager'));
+});
+
+test('getAppConfig: falls back to default owner jay-kestrel and repo ghostgeist', async () => {
+  resetMemoryStoreForTesting();
+
+  const config = await getAppConfig();
+  assert.equal(config.owner, 'jay-kestrel');
+  assert.equal(config.repo, 'ghostgeist');
+});
+
+test('createJiraIssue: falls back to first valid issue type if requested type is not in validIssueTypes', async () => {
+  let capturedPayload = null;
+  const origAsUser = api.asUser;
+
+  try {
+    api.asUser = () => ({
+      requestJira: async (routeObj, options) => {
+        capturedPayload = JSON.parse(options.body);
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({ id: '10003', key: 'GHOST-101', self: 'https://test/issue/10003' })
+        };
+      }
+    });
+
+    await createJiraIssue({
+      projectKey: 'GHOST',
+      summary: 'Custom scheme issue',
+      description: 'Testing valid issue types fallback',
+      issueType: 'NonExistentCustomType',
+      validIssueTypes: ['StandardTask', 'StandardBug']
+    });
+
+    assert.equal(capturedPayload.fields.issuetype.name, 'StandardTask');
+  } finally {
+    api.asUser = origAsUser;
+  }
+});
+
+test('updatePullRequestWithIssue: updates PR title and body when token is provided', async () => {
+  let patchUrl = null;
+  let patchBody = null;
+
+  const mockFetch = async (url, options) => {
+    patchUrl = url;
+    patchBody = JSON.parse(options.body);
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+
+  const success = await updatePullRequestWithIssue({
+    owner: 'jay-kestrel',
+    repo: 'ghostgeist',
+    token: 'ghp_mock_token',
+    prNumber: 42,
+    issueKey: 'GHOST-42',
+    issueUrl: 'https://ghostgeist.atlassian.net/browse/GHOST-42',
+    currentTitle: 'feat: add metrics',
+    currentBody: 'Implements tracking metrics',
+    customFetch: mockFetch
+  });
+
+  assert.equal(success, true);
+  assert.ok(patchUrl.includes('/repos/jay-kestrel/ghostgeist/pulls/42'));
+  assert.equal(patchBody.title, '[GHOST-42] feat: add metrics');
+  assert.ok(patchBody.body.includes('**Tracked in Jira:** [GHOST-42]'));
+});
+
+test('updatePullRequestWithIssue: fails gracefully without token', async () => {
+  const success = await updatePullRequestWithIssue({
+    owner: 'jay-kestrel',
+    repo: 'ghostgeist',
+    token: '',
+    prNumber: 42,
+    issueKey: 'GHOST-42'
+  });
+
+  assert.equal(success, false);
+});
+
+test('fetchProjectContext: gracefully falls back in test environments', async () => {
+  const context = await fetchProjectContext('GHOST');
+  assert.ok(Array.isArray(context.validIssueTypes));
+  assert.ok(context.validIssueTypes.includes('Task'));
+  assert.ok(Array.isArray(context.recentIssues));
 });

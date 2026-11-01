@@ -68,6 +68,7 @@ const App = () => {
   const [selectedPr, setSelectedPr] = useState(null);
   const [triageData, setTriageData] = useState(null);
   const [isTriagingPr, setIsTriagingPr] = useState(false);
+  const [isTriagingAll, setIsTriagingAll] = useState(false);
   const [isReconciling, setIsReconciling] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -194,7 +195,8 @@ const App = () => {
       const res = await invoke('triageSinglePR', {
         pr,
         owner: config.owner,
-        repo: config.repo
+        repo: config.repo,
+        projectKey
       });
 
       if (res && res.success && res.triage) {
@@ -227,6 +229,42 @@ const App = () => {
     }
   };
 
+  // Batch triage all untriaged PRs
+  const handleTriageAll = async () => {
+    setIsTriagingAll(true);
+    setErrorMessage(null);
+
+    try {
+      const untriaged = prs.filter((p) => !p.triage);
+      for (const pr of untriaged) {
+        try {
+          const res = await invoke('triageSinglePR', {
+            pr,
+            owner: config.owner,
+            repo: config.repo,
+            projectKey
+          });
+
+          if (res && res.success && res.triage) {
+            setPrs((prev) =>
+              prev.map((item) => (item.id === pr.id ? { ...item, triage: res.triage } : item))
+            );
+            setStats((prev) => ({
+              ...prev,
+              totalShadowPoints: prev.totalShadowPoints + (res.triage.estimatedStoryPoints || 0)
+            }));
+          }
+        } catch (itemErr) {
+          console.warn(`Triage failed for PR #${pr.number}:`, itemErr.message);
+        }
+      }
+    } catch (err) {
+      setErrorMessage(`Batch triage failed: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsTriagingAll(false);
+    }
+  };
+
   // Quick Reconcile (creates Jira ticket directly)
   const handleReconcileDirect = async (pr) => {
     setSelectedPr(pr);
@@ -236,7 +274,12 @@ const App = () => {
     let triage = pr.triage;
     if (!triage && config.hasGeminiApiKey) {
       try {
-        const triageRes = await invoke('triageSinglePR', { pr, owner: config.owner, repo: config.repo });
+        const triageRes = await invoke('triageSinglePR', {
+          pr,
+          owner: config.owner,
+          repo: config.repo,
+          projectKey
+        });
         if (triageRes && triageRes.success && triageRes.triage) {
           triage = triageRes.triage;
         }
@@ -414,7 +457,7 @@ const App = () => {
               <Button
                 appearance="subtle"
                 spacing="compact"
-                isDisabled={isReconciling}
+                isDisabled={isReconciling || isTriagingAll}
                 onClick={() => handleOpenTriageModal(pr)}
               >
                 View AI Analysis
@@ -423,7 +466,7 @@ const App = () => {
                 appearance="primary"
                 spacing="compact"
                 isLoading={isThisPrReconciling}
-                isDisabled={isReconciling}
+                isDisabled={isReconciling || isTriagingAll}
                 onClick={() => handleReconcileDirect(pr)}
               >
                 Reconcile to Jira
@@ -578,7 +621,19 @@ const App = () => {
           />
         ) : (
           <Stack space="space.100">
-            <Heading as="h3">Untracked Pull Requests ({prs.length})</Heading>
+            <Inline spread="space-between" alignBlock="center">
+              <Heading as="h3">Untracked Pull Requests ({prs.length})</Heading>
+              {prs.some((p) => !p.triage) && (
+                <LoadingButton
+                  appearance="default"
+                  isLoading={isTriagingAll}
+                  isDisabled={isTriagingAll || isReconciling || isScanning}
+                  onClick={handleTriageAll}
+                >
+                  Triage All with Gemini
+                </LoadingButton>
+              )}
+            </Inline>
             <DynamicTable
               head={tableHead}
               rows={tableRows}
@@ -607,6 +662,18 @@ const App = () => {
                   </Box>
                 ) : (
                   <Stack space="space.200">
+                    {/* Duplicate / Related Jira Issue Callout */}
+                    {triageData?.matchedExistingIssueKey ? (
+                      <SectionMessage
+                        appearance="warning"
+                        title="Potential Duplicate / Related Jira Issue"
+                      >
+                        <Text>
+                          {`Gemini spotted that this PR may relate to existing issue ${triageData.matchedExistingIssueKey}.`}
+                        </Text>
+                      </SectionMessage>
+                    ) : null}
+
                     {/* Reason / Analysis Callout */}
                     {editReason ? (
                       <SectionMessage appearance="information" title="Gemini Architecture Rationale">

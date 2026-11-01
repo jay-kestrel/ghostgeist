@@ -1,6 +1,6 @@
 /**
  * GhostGeist Jira REST API Service
- * Creates Jira issues and attaches GitHub remote links using @forge/api.
+ * Creates Jira issues, queries project context, and attaches GitHub remote links using @forge/api.
  */
 import api, { route } from '@forge/api';
 
@@ -99,7 +99,120 @@ export function buildAdfDescription(text, prUrl, prNumber, author, estimatedPoin
 }
 
 /**
+ * Fetches Jira project context including valid issue types and recent issues
+ * for duplicate/orphan detection and AI prompt grounding.
+ * Fail gracefully returning default fallback if any call fails or in test environments.
+ *
+ * @param {string} projectKey - Project key (e.g. 'PROJ')
+ * @returns {Promise<{ validIssueTypes: string[], recentIssues: Array<{ key: string, summary: string, issueType: string, status: string }> }>}
+ */
+export async function fetchProjectContext(projectKey) {
+  const defaultContext = {
+    validIssueTypes: ['Task', 'Bug', 'Story'],
+    recentIssues: []
+  };
+
+  if (!projectKey || typeof projectKey !== 'string' || projectKey.trim().length === 0) {
+    return defaultContext;
+  }
+
+  try {
+    const cleanProjectKey = projectKey.trim().toUpperCase();
+    let validIssueTypes = ['Task', 'Bug', 'Story'];
+    let recentIssues = [];
+
+    // (a) Project details & valid issue types
+    try {
+      let projectRes;
+      if (api?.asUser) {
+        try {
+          projectRes = await api.asUser().requestJira(route`/rest/api/3/project/${cleanProjectKey}`);
+        } catch (err) {
+          console.warn(`fetchProjectContext: api.asUser() failed for project details: ${err.message}`);
+        }
+      }
+
+      if (!projectRes || !projectRes.ok) {
+        if (api?.asApp) {
+          try {
+            projectRes = await api.asApp().requestJira(route`/rest/api/3/project/${cleanProjectKey}`);
+          } catch (err) {
+            console.warn(`fetchProjectContext: api.asApp() fallback failed for project details: ${err.message}`);
+          }
+        }
+      }
+
+      if (projectRes && projectRes.ok) {
+        const projectData = await projectRes.json();
+        if (Array.isArray(projectData?.issueTypes) && projectData.issueTypes.length > 0) {
+          const types = projectData.issueTypes
+            .filter((t) => t && !t.subtask && t.name)
+            .map((t) => t.name.trim())
+            .filter(Boolean);
+
+          if (types.length > 0) {
+            validIssueTypes = [...new Set(types)];
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`fetchProjectContext: Error extracting issue types: ${err.message}`);
+    }
+
+    // (b) Recent project issues for duplicate/orphan detection
+    try {
+      const jql = `project = "${cleanProjectKey}" ORDER BY created DESC`;
+      let searchRes;
+      if (api?.asUser) {
+        try {
+          searchRes = await api.asUser().requestJira(
+            route`/rest/api/3/search?jql=${jql}&maxResults=15&fields=summary,issuetype,status`
+          );
+        } catch (err) {
+          console.warn(`fetchProjectContext: api.asUser() failed for recent issues: ${err.message}`);
+        }
+      }
+
+      if (!searchRes || !searchRes.ok) {
+        if (api?.asApp) {
+          try {
+            searchRes = await api.asApp().requestJira(
+              route`/rest/api/3/search?jql=${jql}&maxResults=15&fields=summary,issuetype,status`
+            );
+          } catch (err) {
+            console.warn(`fetchProjectContext: api.asApp() fallback failed for recent issues: ${err.message}`);
+          }
+        }
+      }
+
+      if (searchRes && searchRes.ok) {
+        const searchData = await searchRes.json();
+        if (Array.isArray(searchData?.issues)) {
+          recentIssues = searchData.issues.map((i) => ({
+            key: i.key,
+            summary: i.fields?.summary || '',
+            issueType: i.fields?.issuetype?.name || '',
+            status: i.fields?.status?.name || ''
+          }));
+        }
+      }
+    } catch (err) {
+      console.warn(`fetchProjectContext: Error extracting recent issues: ${err.message}`);
+    }
+
+    return {
+      validIssueTypes,
+      recentIssues
+    };
+  } catch (err) {
+    console.warn(`fetchProjectContext failed gracefully: ${err.message}`);
+    return defaultContext;
+  }
+}
+
+/**
  * Attaches a remote GitHub link to an existing Jira issue.
+ * Inverts Jira call order: attempts api.asUser() first, falling back to api.asApp().
  */
 export async function attachRemoteLink({ issueKeyOrId, url, title }) {
   if (!issueKeyOrId || !url) {
@@ -119,30 +232,42 @@ export async function attachRemoteLink({ issueKeyOrId, url, title }) {
   };
 
   try {
-    let response = await api.asApp().requestJira(route`/rest/api/3/issue/${issueKeyOrId}/remotelink`, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok && api.asUser) {
-      // Fallback to asUser if asApp is restricted
-      response = await api.asUser().requestJira(route`/rest/api/3/issue/${issueKeyOrId}/remotelink`, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
+    let response;
+    if (api?.asUser) {
+      try {
+        response = await api.asUser().requestJira(route`/rest/api/3/issue/${issueKeyOrId}/remotelink`, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+      } catch (err) {
+        console.warn(`api.asUser() request failed, attempting api.asApp(): ${err.message}`);
+      }
     }
 
-    if (!response.ok) {
-      const err = await response.text();
-      console.warn(`Remote link warning (${response.status}): ${err}`);
+    if (!response || !response.ok) {
+      if (api?.asApp) {
+        try {
+          response = await api.asApp().requestJira(route`/rest/api/3/issue/${issueKeyOrId}/remotelink`, {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          });
+        } catch (err) {
+          console.warn(`api.asApp() fallback failed: ${err.message}`);
+        }
+      }
+    }
+
+    if (!response || !response.ok) {
+      const err = response ? await response.text() : 'No response from Jira API';
+      console.warn(`Remote link warning (${response ? response.status : 500}): ${err}`);
       return false;
     }
 
@@ -155,12 +280,15 @@ export async function attachRemoteLink({ issueKeyOrId, url, title }) {
 
 /**
  * Creates a Jira issue with ADF formatting and links the source PR.
+ * Attempts api.asUser() first, falling back to api.asApp().
+ * Validates issueType against validIssueTypes if provided.
  */
 export async function createJiraIssue({
   projectKey,
   summary,
   description,
   issueType = 'Task',
+  validIssueTypes,
   prUrl,
   prNumber,
   author,
@@ -173,6 +301,14 @@ export async function createJiraIssue({
 
   if (!summary || summary.trim().length === 0) {
     throw new Error('Issue summary/title is required');
+  }
+
+  // Validate issueType against validIssueTypes if provided
+  let selectedIssueType = issueType || 'Task';
+  if (Array.isArray(validIssueTypes) && validIssueTypes.length > 0) {
+    if (!validIssueTypes.includes(selectedIssueType)) {
+      selectedIssueType = validIssueTypes[0];
+    }
   }
 
   const adfDescription = buildAdfDescription(
@@ -192,27 +328,13 @@ export async function createJiraIssue({
       summary: summary.trim(),
       description: adfDescription,
       issuetype: {
-        name: issueType || 'Task'
+        name: selectedIssueType
       }
     }
   };
 
   let response;
-  try {
-    response = await api.asApp().requestJira(route`/rest/api/3/issue`, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-  } catch (err) {
-    console.warn(`api.asApp() request failed, attempting api.asUser(): ${err.message}`);
-  }
-
-  if (!response || !response.ok) {
-    // Attempt fallback to asUser
+  if (api?.asUser) {
     try {
       response = await api.asUser().requestJira(route`/rest/api/3/issue`, {
         method: 'POST',
@@ -223,7 +345,24 @@ export async function createJiraIssue({
         body: JSON.stringify(payload)
       });
     } catch (err) {
-      // Keep previous error or report
+      console.warn(`api.asUser() request failed, attempting api.asApp(): ${err.message}`);
+    }
+  }
+
+  if (!response || !response.ok) {
+    if (api?.asApp) {
+      try {
+        response = await api.asApp().requestJira(route`/rest/api/3/issue`, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+      } catch (err) {
+        console.warn(`api.asApp() fallback failed: ${err.message}`);
+      }
     }
   }
 
