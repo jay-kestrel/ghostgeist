@@ -89,9 +89,9 @@ In reality, engineering teams spend 20–30% of their bandwidth on **shadow work
 | **M6: Live Test Data** | Created branch `feat/optimize-auth-session-cache` and opened live untracked **[PR #1](https://github.com/jay-kestrel/ghostgeist/pull/1)** on GitHub. | ✅ **Complete** |
 | **M6.5: Skill & Documentation** | Authored open-source `skill.md` for Claude/Cursor/Rovo agents, created root `README.md`, package guide, and MIT `LICENSE`. Resolved `@forge/resolver` ESM binding bug in v3.2.0. | ✅ **Complete** |
 | **M7: Live End-to-End Verification** | Verified end-to-end flow on `ghostgeist.atlassian.net`. Surfaced PR #1, triaged with Gemini (Bug, 3 pts), created issue `GHOST-1`, and linked PR. | ✅ **Complete** |
-| **M7.5: Judge & Rubric Hardening** | Added `DEVPOST_SUBMISSION.md` (1-to-1 rubric mapping & 60s zero-config judge test guide), KVS reconciliation ledger + GitHub PR write-back, Jira backlog context in Gemini prompt, `api.asUser()` priority, and native `rovo:agent` module. | 🟡 **In Progress** |
-| **M8: Demo Video Production** | Screen recording, Fish Audio voiceover synthesis, and ffmpeg assembly into a 2-minute demo. | 🟡 **In Progress** |
-| **M9: Devpost & Marketplace Package** | Submission copy, Forge installation link generation, Marketplace review ticket submission. | ⏳ Pending |
+| **M7.5: Judge & Rubric Hardening** | Added `DEVPOST_SUBMISSION.md` (1-to-1 rubric mapping & 60s zero-config judge test guide), KVS reconciliation ledger + GitHub PR write-back, Jira backlog context in Gemini prompt, `api.asUser()` priority, native `rovo:agent` module, and 29/29 unit tests passing. | ✅ **Complete** |
+| **M8: Demo Video Production** | Full 1080p Apple-grade screen choreography, Fish Audio voiceover (`demo_voiceover.mp3`), BGM ducking (`demo_backing_audio.mp3`), 10 scene video clips, and sub-frame master assembly (`ghostgeist_demo_master.mp4`, 111.8s). | ✅ **Complete** |
+| **M9: Devpost & Marketplace Package** | Submission copy, Forge installation link instructions, Devpost fields mapping, and final repo audit. | 🟡 **Active / Ready** |
 
 ---
 

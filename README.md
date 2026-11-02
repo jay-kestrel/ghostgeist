@@ -14,9 +14,9 @@
 [![UI Kit 2](https://img.shields.io/badge/@forge/react-UI_Kit_2-blue?style=for-the-badge)](https://developer.atlassian.com/platform/forge/ui-kit/)
 [![Node.js](https://img.shields.io/badge/Node.js-24.x_LTS-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-[![Unit Tests](https://img.shields.io/badge/Tests-25%2F25_Passing-brightgreen?style=for-the-badge)](#testing--verification)
+[![Unit Tests](https://img.shields.io/badge/Tests-29%2F29_Passing-brightgreen?style=for-the-badge)](#testing--verification)
 
-[Live Deployment](https://ghostgeist.atlassian.net/jira/software/projects/GHOST/apps/8f916e76-19dc-490d-8440-d6ff0cf9122d/00436796-5548-469e-b60e-93b709397200) • [GitHub Repository](https://github.com/jay-kestrel/ghostgeist) • [Hackathon Devpost](https://codegeist2026.devpost.com/) • [MCP Skill](skills/ghostgeist/skill.md)
+[Live Deployment](https://ghostgeist.atlassian.net/jira/software/projects/GHOST/apps/8f916e76-19dc-490d-8440-d6ff0cf9122d/00436796-5548-469e-b60e-93b709397200) • [Demo Video (1080p)](ghostgeist_demo_master.mp4) • [Video Script](DEMO_VIDEO_SCRIPT.md) • [Devpost Guide](DEVPOST_SUBMISSION.md) • [GitHub Repository](https://github.com/jay-kestrel/ghostgeist) • [MCP Skill](skills/ghostgeist/skill.md)
 
 </div>
 
@@ -179,20 +179,24 @@ flowchart TD
 
 ## 🏆 Codegeist 2026 Category Alignment
 
-GhostGeist has been purpose-built to target three key prize tracks in **Atlassian Codegeist 2026**:
+GhostGeist has been purpose-built to target the primary track and all three developer bonus categories in **Atlassian Codegeist 2026**:
 
 ### 1. Grand Category: Apps for Software Teams ($15,000 / $8,000 / $5,000)
 * **Alignment**: Directly solves one of the largest chronic problems in software engineering management: untracked engineering capacity. It connects Jira Software directly to developers' real-world git workflows without administrative toil, restoring burndown accuracy, sprint velocity metrics, and release integrity.
 
 ### 2. Bonus Category 1: Best App with Atlassian MCP ($1,500)
-* **Alignment**: Fully implements Atlassian's new Model Context Protocol (`rovo:mcp`) specification. Declares three production-ready tools (`get-untracked-prs`, `triage-pr-gemini`, `create-jira-ticket-from-pr`) and provides an open-source [`skill.md`](skills/ghostgeist/skill.md) file compatible with **Atlassian Rovo**, **Claude Desktop**, and **Cursor IDE**.
+* **Alignment**: Fully implements Atlassian's Model Context Protocol (`rovo:mcp`) specification. Declares three production-ready tools (`get-untracked-prs`, `triage-pr-gemini`, `create-jira-ticket-from-pr`) and provides an open-source [`skill.md`](skills/ghostgeist/skill.md) file compatible with **Atlassian Rovo**, **Claude Desktop**, and **Cursor IDE**.
 
-### 3. Bonus Category 2: Best Marketplace Published App ($1,500)
+### 3. Bonus Category 2: Best Agents — Rovo / Assignable Agents ($1,500)
+* **Alignment**: Declares an autonomous in-product agent (`rovo:agent`) named **GhostGeist Auditor** with native conversation starters and tool actions. Teams can invoke `@GhostGeist Auditor` directly inside Atlassian Rovo Chat to audit pull requests, estimate story points, and reconcile work conversationally.
+
+### 4. Bonus Category 3: Best Marketplace Published App ($1,500)
 * **Alignment**: GhostGeist adheres to all Atlassian Marketplace security and architectural requirements:
-  - 100% native Forge runtime (no external server infrastructure required).
+  - 100% native serverless Forge runtime (no external server infrastructure required).
   - Built with official UI Kit 2 (`@forge/react`) components for responsive dark/light theme support.
+  - Zero client secret leakage: API tokens are kept server-side in `@forge/kvs`.
   - Passes Atlassian automated validation (`forge lint` with 0 errors).
-  - Comprehensive unit test coverage with Node.js test runner.
+  - Comprehensive unit test coverage with Node.js test runner (29/29 passing).
 
 ---
 
@@ -368,7 +372,7 @@ Add the following snippet to your `claude_desktop_config.json` or Cursor MCP set
 
 ## 🧪 Testing & Verification
 
-GhostGeist includes a comprehensive unit testing suite verifying all regex edge cases, ADF generation rules, secret protection, and Gemini model fallbacks.
+GhostGeist includes a comprehensive unit testing suite verifying all regex edge cases, ADF generation rules, secret protection, Gemini model fallbacks, session cache eviction, and exponential backoff retry.
 
 ### Run Unit Tests
 ```bash
@@ -376,23 +380,43 @@ cd ghostgeist
 npm test
 ```
 
-#### Test Suite Output
+#### Test Suite Output (29/29 Passing)
 ```
 ✔ analyzePRTracking: detects untracked PR with no Jira key (0.94ms)
-✔ analyzePRTracking: detects tracked PR when Jira key in title (0.10ms)
-✔ analyzePRTracking: detects tracked PR when Jira key in branch ref (0.08ms)
-✔ analyzePRTracking: detects tracked PR when Jira key in body (0.07ms)
-✔ analyzePRTracking: marks tracked if PR matches any valid Jira key, preferring target project key if present (0.20ms)
-✔ buildAdfDescription: produces valid ADF structure with PR link and AI insights (0.26ms)
-✔ buildAdfDescription: handles empty or null input gracefully (0.08ms)
-✔ buildAdfDescription: ADF spec strictly prevents empty string text nodes (0.15ms)
-✔ saveAppConfig: guards against non-string/null inputs and preserves existing secrets (1.26ms)
-✔ triagePRWithGemini: uses header-based auth and gemini-3 line models (0.42ms)
+✔ analyzePRTracking: detects tracked PR when Jira key in title (0.08ms)
+✔ analyzePRTracking: detects tracked PR when Jira key in branch ref (0.06ms)
+✔ analyzePRTracking: detects tracked PR when Jira key in body (0.06ms)
+✔ analyzePRTracking: marks tracked if PR matches any valid Jira key, preferring target project key if present (0.16ms)
+✔ buildAdfDescription: produces valid ADF structure with PR link and AI insights (0.23ms)
+✔ buildAdfDescription: handles empty or null input gracefully (0.06ms)
+✔ buildAdfDescription: ADF spec strictly prevents empty string text nodes (0.20ms)
+✔ saveAppConfig: guards against non-string/null inputs and preserves existing secrets (1.17ms)
+✔ triagePRWithGemini: uses header-based auth and gemini-3 line models (0.51ms)
+✔ triagePRWithGemini: falls back to gemini-3.6-flash when gemini-3.8-flash returns 503 (0.28ms)
+✔ api.asUser() priority: attempts asUser first, falling back to asApp on failure (0.68ms)
+✔ api.asUser() priority: attributes to asUser when asUser succeeds (0.11ms)
+✔ Reconciled PR persistence in KVS & analyzePRTracking filtering (1.10ms)
+✔ triagePRWithGemini: grounds in jiraContext and identifies matchedExistingIssueKey (0.19ms)
+✔ getAppConfig: falls back to default owner jay-kestrel and repo ghostgeist (0.09ms)
+✔ createJiraIssue: falls back to first valid issue type if requested type is not in validIssueTypes (0.10ms)
+✔ updatePullRequestWithIssue: updates PR title and body when token is provided (0.15ms)
+✔ updatePullRequestWithIssue: fails gracefully without token (0.05ms)
+✔ fetchProjectContext: gracefully falls back in test environments (0.44ms)
+✔ getCachedTriage / setCachedTriage: stores and retrieves triage results keyed by commit SHA (0.55ms)
+✔ checkAndIncrementDemoQuota: enforces cap and denies calls exceeding quota (0.36ms)
+✔ usingBuiltInGeminiKey: tracks built-in fallback vs custom key override (0.34ms)
+✔ SessionCache: stores and retrieves items correctly (0.95ms)
+✔ SessionCache: evicts oldest key when limit is reached (0.09ms)
+✔ verifyWebhookSignature: accurately verifies identical HMAC signatures (0.82ms)
+✔ withExponentialBackoff: succeeds immediately when operation does not throw (0.14ms)
+✔ withExponentialBackoff: retries on transient errors and resolves on eventual success (9.15ms)
+✔ withExponentialBackoff: throws final error when retry attempts are exhausted (5.24ms)
 
-ℹ tests 10
+ℹ tests 29
 ℹ suites 0
-ℹ pass 10
+ℹ pass 29
 ℹ fail 0
+ℹ duration_ms 136ms
 ```
 
 ### Run Forge Manifest & Code Linting
@@ -412,12 +436,22 @@ ghostgeist/
 ├── LICENSE                          # MIT Open Source License
 ├── MASTER_PLAN.md                   # Hackathon delivery milestones & execution log
 ├── README.md                        # Master project documentation (this file)
+├── DEVPOST_SUBMISSION.md            # Devpost form copy, judge evaluation guide & rubric
+├── DEMO_VIDEO_SCRIPT.md             # Complete 10-scene video script & screen choreography
+├── ghostgeist_demo_master.mp4       # Finalized 1080p master demonstration video (111.8s)
 ├── skill.md                         # Symlink to GhostGeist AI Agent Skill
 ├── skills/
 │   └── ghostgeist/
 │       └── skill.md                 # Agent instructions for Claude / Cursor / Rovo
+├── video_production/                # 100% reproducible video generation pipeline
+│   ├── render_scenes.js             # Puppeteer 30fps frame-by-frame renderer
+│   ├── stitch_video.py              # FFmpeg audio/video sub-frame multiplexer
+│   ├── run_all.sh                   # Master rebuild shell script
+│   ├── scenes/                      # 10 animated HTML/SVG/CSS scene templates
+│   │   ├── scene_01.html ... scene_10.html
+│   └── thumbnails/                  # Verification keyframe captures (1080p)
 └── ghostgeist/                      # Atlassian Forge App Package
-    ├── manifest.yml                 # Forge App Manifest (UI Kit 2, rovo:mcp, scopes)
+    ├── manifest.yml                 # Forge App Manifest (UI Kit 2, rovo:mcp, rovo:agent, scopes)
     ├── package.json                 # Node.js dependencies & scripts
     ├── README.md                    # Forge App package guide
     ├── TECHNICAL_SPEC.md            # Verified API schemas, ADF spec & empirical reference
@@ -434,7 +468,7 @@ ghostgeist/
     │       ├── github.js            # GitHub REST API & regex tracking analyzer
     │       └── jira.js              # Jira REST API v3 ADF builder & remote linker
     └── tests/
-        └── services.test.mjs        # 10/10 automated unit test suite
+        └── services.test.mjs        # 29/29 automated unit test suite
 ```
 
 ---

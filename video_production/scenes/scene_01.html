@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scene 01 - The Shadow Work Blindspot</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 1920px;
+      height: 1080px;
+      background: #0b0f19;
+      color: #f0f6fc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Ambient background glow */
+    .bg-glow-left {
+      position: absolute;
+      top: -100px;
+      left: 100px;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(56, 139, 253, 0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .bg-glow-right {
+      position: absolute;
+      bottom: -100px;
+      right: 100px;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(248, 81, 73, 0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* Top Global Header */
+    .top-bar {
+      height: 64px;
+      background: rgba(13, 17, 23, 0.95);
+      border-bottom: 1px solid #30363d;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 40px;
+      z-index: 10;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .ghost-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #58a6ff, #bc8cff);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 0 16px rgba(88, 166, 255, 0.4);
+    }
+    .split-pill {
+      background: #21262d;
+      border: 1px solid #30363d;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #8b949e;
+      display: flex;
+      gap: 8px;
+    }
+    .split-pill span { color: #f85149; }
+
+    /* Main Split Container */
+    .split-container {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      padding: 28px 40px 140px 40px;
+      z-index: 5;
+    }
+
+    /* Panels */
+    .panel {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    }
+    .panel-header {
+      background: #0d1117;
+      padding: 16px 24px;
+      border-bottom: 1px solid #30363d;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .panel-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #c9d1d9;
+    }
+    .panel-body {
+      padding: 24px 28px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Left: GitHub PR */
+    .repo-tag {
+      font-size: 14px;
+      color: #58a6ff;
+      margin-bottom: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .pr-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f0f6fc;
+      line-height: 1.3;
+      margin-bottom: 12px;
+    }
+    .pr-title span { color: #8b949e; font-weight: 400; }
+    .badge-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .badge-open {
+      background: #238636;
+      color: white;
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .branch-desc {
+      font-size: 14px;
+      color: #8b949e;
+    }
+    .branch-pill {
+      background: #21262d;
+      color: #58a6ff;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-family: monospace;
+    }
+    .alert-card {
+      background: rgba(248, 81, 73, 0.1);
+      border: 1px solid rgba(248, 81, 73, 0.4);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 18px;
+      transition: all 0.3s;
+    }
+    .alert-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #f85149;
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .alert-desc {
+      font-size: 13px;
+      color: #c9d1d9;
+      line-height: 1.5;
+    }
+    .file-diff-preview {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px;
+    }
+    .diff-line-add { color: #3fb950; margin: 4px 0; }
+    .diff-line-info { color: #8b949e; margin-bottom: 8px; }
+
+    /* Right: Jira Burndown */
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .metric-box {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .metric-label { font-size: 11px; color: #8b949e; margin-bottom: 4px; text-transform: uppercase; font-weight: 600; }
+    .metric-value { font-size: 24px; font-weight: 700; color: #f0f6fc; }
+    .metric-value.red { color: #f85149; }
+
+    .chart-container {
+      flex: 1;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 18px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+    .chart-header {
+      font-size: 13px;
+      font-weight: 600;
+      color: #8b949e;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .chart-svg {
+      width: 100%;
+      height: 220px;
+    }
+    .flatline-callout {
+      position: absolute;
+      top: 48%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(248, 81, 73, 0.95);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      box-shadow: 0 8px 24px rgba(248, 81, 73, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform 0.2s, opacity 0.3s;
+    }
+
+    /* Fixed 1:1 Lower-Third Overlay Banner */
+    .lower-third {
+      position: absolute;
+      bottom: 28px;
+      left: 40px;
+      right: 40px;
+      height: 84px;
+      background: rgba(13, 17, 23, 0.94);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(88, 166, 255, 0.35);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+      z-index: 20;
+    }
+    .lt-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .lt-track-badge {
+      background: linear-gradient(135deg, #0c66e4, #0052cc);
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      box-shadow: 0 0 16px rgba(12, 102, 228, 0.4);
+    }
+    .lt-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f0f6fc;
+      margin-bottom: 2px;
+    }
+    .lt-subtitle {
+      font-size: 14px;
+      color: #8b949e;
+    }
+    .lt-pill {
+      background: rgba(248, 81, 73, 0.15);
+      border: 1px solid rgba(248, 81, 73, 0.4);
+      color: #ff7b72;
+      padding: 8px 18px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    /* Interactive DOM Cursor */
+    .dom-cursor {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      pointer-events: none;
+      z-index: 100;
+      transform: translate(-2px, -2px);
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+    }
+    .click-ripple {
+      position: absolute;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 2px solid #579dff;
+      background: rgba(87, 157, 255, 0.3);
+      transform: translate(-24px, -24px) scale(0);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 99;
+      transition: transform 0.4s ease-out, opacity 0.4s ease-out;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-glow-left"></div>
+  <div class="bg-glow-right"></div>
+
+  <!-- Top Global Header -->
+  <header class="top-bar">
+    <div class="brand">
+      <div class="ghost-icon">👻</div>
+      <span>GhostGeist</span>
+      <span style="color:#8b949e;font-weight:400;font-size:16px;">| Atlassian Codegeist 2026</span>
+    </div>
+    <div class="split-pill">
+      <span>● Shadow Work Detected</span>
+      &bull; 20-30% Untracked Bandwidth
+    </div>
+  </header>
+
+  <!-- Main Split Screen -->
+  <main class="split-container">
+    <!-- Left: GitHub PR #1 -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <svg height="20" width="20" viewBox="0 0 16 16" fill="#f0f6fc"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>
+          <span>GitHub Pull Request</span>
+        </div>
+        <span style="font-size:13px;color:#8b949e;">Repo: jay-kestrel/ghostgeist</span>
+      </div>
+      <div class="panel-body">
+        <div class="repo-tag">jay-kestrel / ghostgeist &bull; PR #1</div>
+        <h2 class="pr-title">feat: optimize auth session cache and pool lifecycle <span>#1</span></h2>
+        
+        <div class="badge-row">
+          <div class="badge-open">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="white"><path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.5 5.396l2.323-2.323a.75.75 0 0 1 1.06 1.06L10.56 6.46l2.324 2.323a.75.75 0 1 1-1.06 1.06L9.5 7.525 7.177 9.849a.75.75 0 0 1-1.06-1.06L8.44 6.46 6.116 4.134a.75.75 0 0 1 1.061-1.061Z"/></svg>
+            Open
+          </div>
+          <div class="branch-desc">
+            <span class="branch-pill">feat/optimize-auth-session-cache</span> into <span class="branch-pill">main</span>
+          </div>
+        </div>
+
+        <div class="alert-card" id="gh-alert">
+          <div class="alert-header">
+            <span>⚠️ MISSING JIRA ISSUE KEY</span>
+          </div>
+          <div class="alert-desc">
+            This pull request contains un-ticketed changes merging directly into production. No Jira issue key was detected in the branch name or commit messages.
+          </div>
+        </div>
+
+        <div class="file-diff-preview">
+          <div class="diff-line-info">auth-cache.js &bull; +28 lines modified &bull; Commit c0f9122</div>
+          <div class="diff-line-add">+ export class AuthSessionCache {</div>
+          <div class="diff-line-add">+   constructor(options = {}) {</div>
+          <div class="diff-line-add">+     this.pool = new ConnectionPool({ evictionInterval: 300 });</div>
+          <div class="diff-line-add">+   }</div>
+          <div class="diff-line-add">+   async evictStaleSessions() { ... }</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Jira Sprint Burndown Chart -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <svg height="20" width="20" viewBox="0 0 24 24" fill="#0052cc"><path d="M11.53 2c0 2.4 1.97 4.35 4.35 4.35h1.78v1.74c0 2.4 1.97 4.35 4.35 4.35V2h-10.48zm-4.75 4.75c0 2.4 1.97 4.35 4.35 4.35h1.78v1.74c0 2.4 1.97 4.35 4.35 4.35V6.75H6.78zM2 11.53c0 2.4 1.97 4.35 4.35 4.35h1.78v1.74c0 2.4 1.97 4.35 4.35 4.35V11.53H2z"/></svg>
+          <span>Jira Software &bull; GHOST Sprint 1 Burndown</span>
+        </div>
+        <span style="font-size:13px;color:#8b949e;">Active Sprint: Sprint 1</span>
+      </div>
+      <div class="panel-body">
+        <div class="metric-row">
+          <div class="metric-box">
+            <div class="metric-label">Committed Scope</div>
+            <div class="metric-value">28 pts</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">Completed Velocity</div>
+            <div class="metric-value red">0 pts (0%)</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">Untracked Shadow</div>
+            <div class="metric-value red" id="shadow-stat">~8 pts</div>
+          </div>
+        </div>
+
+        <div class="chart-container">
+          <div class="chart-header">
+            <span>Sprint Burndown (Story Points Remaining)</span>
+            <span style="color:#f85149;font-weight:700;">Flatlined Velocity</span>
+          </div>
+
+          <svg class="chart-svg" viewBox="0 0 600 220">
+            <!-- Grid lines -->
+            <line x1="40" y1="30" x2="570" y2="30" stroke="#21262d" stroke-dasharray="4"/>
+            <line x1="40" y1="75" x2="570" y2="75" stroke="#21262d" stroke-dasharray="4"/>
+            <line x1="40" y1="120" x2="570" y2="120" stroke="#21262d" stroke-dasharray="4"/>
+            <line x1="40" y1="165" x2="570" y2="165" stroke="#21262d" stroke-dasharray="4"/>
+            <line x1="40" y1="195" x2="570" y2="195" stroke="#30363d"/>
+
+            <!-- Y Axis Labels -->
+            <text x="15" y="35" fill="#8b949e" font-size="12">28</text>
+            <text x="15" y="80" fill="#8b949e" font-size="12">21</text>
+            <text x="15" y="125" fill="#8b949e" font-size="12">14</text>
+            <text x="15" y="170" fill="#8b949e" font-size="12">7</text>
+            <text x="20" y="200" fill="#8b949e" font-size="12">0</text>
+
+            <!-- Ideal Guideline (Gray Dashed) -->
+            <line x1="50" y1="35" x2="560" y2="195" stroke="#8b949e" stroke-width="2.5" stroke-dasharray="6,6"/>
+
+            <!-- Actual Burndown (Animated Flatlined Red Line) -->
+            <line id="flatline" x1="50" y1="35" x2="560" y2="35" stroke="#f85149" stroke-width="4" stroke-dasharray="510" stroke-dashoffset="0"/>
+            <circle cx="50" cy="35" r="5" fill="#f85149"/>
+            <circle id="dot-1" cx="150" cy="35" r="5" fill="#f85149"/>
+            <circle id="dot-2" cx="250" cy="35" r="5" fill="#f85149"/>
+            <circle id="dot-3" cx="350" cy="35" r="5" fill="#f85149"/>
+            <circle id="dot-4" cx="450" cy="35" r="5" fill="#f85149"/>
+            <circle id="dot-5" cx="560" cy="35" r="6" fill="#f85149" stroke="white" stroke-width="2"/>
+          </svg>
+
+          <div class="flatline-callout" id="callout-alert">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="white"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/></svg>
+            <span>ZERO VELOCITY BURNED &bull; WORK INVISIBLE</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Lower-Third Overlay Banner -->
+  <footer class="lower-third">
+    <div class="lt-left">
+      <div class="lt-track-badge">Apps for Software Teams</div>
+      <div>
+        <div class="lt-title">The Shadow Work Blindspot</div>
+        <div class="lt-subtitle">20–30% of engineering bandwidth bypasses Jira tracking</div>
+      </div>
+    </div>
+    <div class="lt-pill">Problem: Untracked Pull Requests</div>
+  </footer>
+
+  <!-- Cursor & Ripple -->
+  <div id="click-ripple" class="click-ripple"></div>
+  <svg id="cursor" class="dom-cursor" viewBox="0 0 24 24">
+    <path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87c.45 0 .67-.54.35-.85L5.85 2.85a.5.5 0 0 0-.35.36z" fill="#ffffff" stroke="#1d2125" stroke-width="1.5" stroke-linejoin="round"/>
+  </svg>
+
+  <script>
+    function easeInOutCubic(x) {
+      return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    }
+
+    window.renderAt = function(t) {
+      // 1. Animate burndown flatline drawing across Day 1 to Day 10 (t: 0s to 2.5s)
+      const lineProgress = Math.min(Math.max(t / 2.5, 0), 1);
+      const flatline = document.getElementById('flatline');
+      flatline.setAttribute('stroke-dashoffset', String(510 * (1 - lineProgress)));
+
+      // 2. Pulse callout alert
+      const callout = document.getElementById('callout-alert');
+      const pulse = 1 + 0.05 * Math.sin(t * 6);
+      callout.style.transform = `translate(-50%, -50%) scale(${pulse})`;
+
+      // 3. Subtle alert border glow on left panel
+      const ghAlert = document.getElementById('gh-alert');
+      const alpha = 0.1 + 0.08 * Math.sin(t * 4);
+      ghAlert.style.backgroundColor = `rgba(248, 81, 73, ${alpha})`;
+
+      // 4. Cursor Movement: Starts at PR #1 (420, 360), moves to Burndown flatline (1420, 380) at t: 1.5s to 4.2s
+      const cursor = document.getElementById('cursor');
+      let cx = 420, cy = 360;
+      if (t >= 1.5 && t <= 4.2) {
+        const p = easeInOutCubic((t - 1.5) / 2.7);
+        cx = 420 + (1420 - 420) * p;
+        cy = 360 + (380 - 360) * p;
+      } else if (t > 4.2) {
+        cx = 1420 + 20 * Math.sin((t - 4.2) * 2);
+        cy = 380 + 10 * Math.cos((t - 4.2) * 2);
+      }
+      cursor.style.left = cx + 'px';
+      cursor.style.top = cy + 'px';
+    };
+
+    let startTime = null;
+    function autoLoop(now) {
+      if (!startTime) startTime = now;
+      const t = (now - startTime) / 1000;
+      window.renderAt(t % 7.5);
+      requestAnimationFrame(autoLoop);
+    }
+    requestAnimationFrame(autoLoop);
+  </script>
+</body>
+</html>

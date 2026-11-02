@@ -24,6 +24,9 @@ GhostGeist combines a native Jira Software Project Page with an Atlassian Rovo M
 * **`rovo:mcp`** (`ghostgeist-mcp`):
   * Tools: `get-untracked-prs`, `triage-pr-gemini`, `create-jira-ticket-from-pr`
   * Handler: `src/mcp/index.handler`
+* **`rovo:agent`** (`ghostgeist-auditor`):
+  * Autonomous in-product shadow work auditor agent for Atlassian Rovo Chat
+  * Actions: `get-untracked-prs`, `triage-pr-gemini`, `create-jira-ticket-from-pr`
 * **Runtime Specifications**:
   * Engine: `nodejs24.x`
   * Memory: `256MB`
@@ -59,7 +62,7 @@ npm run lint
 ```bash
 npm test
 ```
-*Executes the 10-test suite covering regex Jira key matching, ADF document tree generation, secret isolation, and Gemini 3.8/3.5 fallback logic.*
+*Executes the 29-test suite covering regex Jira key matching, ADF document tree generation, secret isolation, Gemini 3.8/3.6 fallback logic, `api.asUser()` priority, and session cache eviction.*
 
 ### 4. Deploy to Development Environment
 ```bash

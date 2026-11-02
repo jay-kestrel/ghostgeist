@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scene 08 - Atlassian Rovo Chat Agent</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 1920px;
+      height: 1080px;
+      background: #1d2125;
+      color: #f0f6fc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Top Jira Navigation */
+    .jira-top-nav {
+      height: 56px;
+      background: #161a1d;
+      border-bottom: 1px solid #2c333a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 10;
+    }
+    .jira-nav-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .jira-logo-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: white;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    /* Workspace: Jira Board in background + Rovo Drawer on right */
+    .workspace-layout {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 580px;
+      padding-bottom: 140px;
+      overflow: hidden;
+    }
+
+    /* Background Jira View with REAL Sprint Cards */
+    .jira-back-content {
+      padding: 32px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      opacity: 0.6;
+      filter: blur(1.5px);
+    }
+    .board-header {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f0f6fc;
+    }
+    .dummy-board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      height: 480px;
+    }
+    .board-col {
+      background: #161a1d;
+      border: 1px solid #2c333a;
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .col-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #8b949e;
+      text-transform: uppercase;
+    }
+    .card-item {
+      background: #22272b;
+      border: 1px solid #383f47;
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .card-key { font-size: 12px; color: #579dff; font-weight: 700; }
+    .card-text { font-size: 13px; color: #c9d1d9; }
+    .card-footer { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #8b949e; }
+    .card-pt-pill { background: #161a1d; border: 1px solid #383f47; padding: 2px 6px; border-radius: 4px; color: #579dff; font-weight: 700; }
+
+    /* Rovo Chat Drawer (Animated Slide-In) */
+    .rovo-drawer {
+      background: #161a1d;
+      border-left: 2px solid #579dff;
+      display: flex;
+      flex-direction: column;
+      box-shadow: -16px 0 48px rgba(0, 0, 0, 0.6);
+      position: relative;
+      transform: translateX(100%);
+      transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .rovo-drawer.visible {
+      transform: translateX(0);
+    }
+    .rovo-header {
+      background: #111417;
+      border-bottom: 1px solid #2c333a;
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .rovo-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .rovo-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #0c66e4, #bc8cff);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    .rovo-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #f0f6fc;
+    }
+    .rovo-badge {
+      background: rgba(188, 140, 255, 0.2);
+      border: 1px solid #bc8cff;
+      color: #d2a8ff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 12px;
+    }
+
+    /* Rovo Chat Content */
+    .rovo-messages {
+      flex: 1;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      overflow-y: auto;
+    }
+    .user-bubble {
+      background: #22272b;
+      border: 1px solid #383f47;
+      border-radius: 12px 12px 2px 12px;
+      padding: 14px 18px;
+      font-size: 14px;
+      color: #f0f6fc;
+      align-self: flex-end;
+      max-width: 90%;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.3s, transform 0.3s;
+    }
+    .user-bubble.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Typing Indicator */
+    .typing-indicator {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #8b949e;
+      padding: 8px 12px;
+    }
+    .dots-bounce {
+      display: flex;
+      gap: 4px;
+    }
+    .dots-bounce span {
+      width: 6px;
+      height: 6px;
+      background: #579dff;
+      border-radius: 50%;
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+    .dots-bounce span:nth-child(2) { animation-delay: 0.2s; }
+    .dots-bounce span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+    .agent-bubble {
+      background: #1d2125;
+      border: 1px solid #2c333a;
+      border-radius: 12px 12px 12px 2px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      font-size: 14px;
+      line-height: 1.5;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+    }
+    .agent-bubble.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .agent-header-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #579dff;
+    }
+    .rovo-card {
+      background: #161a1d;
+      border: 1px solid rgba(87, 157, 255, 0.4);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+    .rovo-card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f0f6fc;
+    }
+    .rovo-card-pills {
+      display: flex;
+      gap: 8px;
+    }
+    .rpill {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+    .rpill-blue { background: #0c66e4; color: white; }
+    .rpill-green { background: #238636; color: white; }
+
+    /* Fixed 1:1 Lower-Third Overlay */
+    .lower-third {
+      position: absolute;
+      bottom: 28px;
+      left: 60px;
+      right: 60px;
+      height: 84px;
+      background: rgba(13, 17, 23, 0.94);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(188, 140, 255, 0.4);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+      z-index: 20;
+    }
+    .lt-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .lt-badge {
+      background: linear-gradient(135deg, #bc8cff, #8957e5);
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      box-shadow: 0 0 16px rgba(188, 140, 255, 0.4);
+    }
+    .lt-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f0f6fc;
+      margin-bottom: 2px;
+    }
+    .lt-subtitle {
+      font-size: 14px;
+      color: #8b949e;
+    }
+    .lt-pill {
+      background: rgba(188, 140, 255, 0.2);
+      border: 1px solid #bc8cff;
+      color: #d2a8ff;
+      padding: 8px 18px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    /* Interactive DOM Cursor */
+    .dom-cursor {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      pointer-events: none;
+      z-index: 100;
+      transform: translate(-2px, -2px);
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+    }
+  </style>
+</head>
+<body>
+  <!-- Top Navigation -->
+  <header class="jira-top-nav">
+    <div class="jira-nav-left">
+      <div class="jira-logo-group">
+        <svg height="22" width="22" viewBox="0 0 24 24" fill="#0052cc"><path d="M11.53 2c0 2.4 1.97 4.35 4.35 4.35h1.78v1.74c0 2.4 1.97 4.35 4.35 4.35V2h-10.48zm-4.75 4.75c0 2.4 1.97 4.35 4.35 4.35h1.78v1.74c0 2.4 1.97 4.35 4.35 4.35V6.75H6.78zM2 11.53c0 2.4 1.97 4.35 4.35 4.35h1.78v1.74c0 2.4 1.97 4.35 4.35 4.35V11.53H2z"/></svg>
+        <span>Jira Cloud</span>
+      </div>
+      <span style="font-size:14px;color:#8b949e;">GhostGeist / Active Sprint Board</span>
+    </div>
+  </header>
+
+  <!-- Workspace -->
+  <main class="workspace-layout">
+    <div class="jira-back-content">
+      <div class="board-header">Sprint 1 Kanban Board (GHOST Project)</div>
+      <div class="dummy-board">
+        <div class="board-col">
+          <div class="col-title">To Do (2)</div>
+          <div class="card-item">
+            <span class="card-key">GHOST-2</span>
+            <div class="card-text">Refactor session store mutex locks</div>
+            <div class="card-footer"><span>Jay Kestrel</span><span class="card-pt-pill">2 pts</span></div>
+          </div>
+          <div class="card-item">
+            <span class="card-key">GHOST-3</span>
+            <div class="card-text">Update Redis connection config</div>
+            <div class="card-footer"><span>Jayaram H.</span><span class="card-pt-pill">1 pt</span></div>
+          </div>
+        </div>
+
+        <div class="board-col">
+          <div class="col-title">In Progress (1)</div>
+          <div class="card-item">
+            <span class="card-key">GHOST-4</span>
+            <div class="card-text">Setup telemetry alerts for auth</div>
+            <div class="card-footer"><span>Dev Lead</span><span class="card-pt-pill">3 pts</span></div>
+          </div>
+        </div>
+
+        <div class="board-col">
+          <div class="col-title">Done (4)</div>
+          <div class="card-item">
+            <span class="card-key">GHOST-5</span>
+            <div class="card-text">Scaffold Forge app skeleton</div>
+            <div class="card-footer"><span>Completed</span><span class="card-pt-pill">5 pts</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rovo Chat Drawer -->
+    <aside class="rovo-drawer" id="rovo-drawer">
+      <div class="rovo-header">
+        <div class="rovo-brand">
+          <div class="rovo-icon">✨</div>
+          <span class="rovo-title">Atlassian Rovo Chat</span>
+        </div>
+        <span class="rovo-badge">rovo:agent Active</span>
+      </div>
+
+      <div class="rovo-messages">
+        <div class="user-bubble" id="rovo-user-msg">
+          @GhostGeist Auditor: Audit open pull requests and reconcile untracked work.
+        </div>
+
+        <div class="typing-indicator" id="rovo-typing">
+          <div class="dots-bounce"><span></span><span></span><span></span></div>
+          <span>@GhostGeist Auditor is analyzing repository...</span>
+        </div>
+
+        <div class="agent-bubble" id="rovo-agent-msg">
+          <div class="agent-header-row">
+            <span>👻 GhostGeist Auditor Agent</span>
+            <span style="color:#8b949e;font-size:11px;">Just now</span>
+          </div>
+          <div>
+            I audited repository <strong>jay-kestrel/ghostgeist</strong>. Found 1 untracked pull request merging sensitive authentication code into main:
+          </div>
+
+          <div class="rovo-card">
+            <div class="rovo-card-title">PR #1: feat/optimize-auth-session-cache</div>
+            <div style="color:#8b949e;font-size:13px;">Branch: feat/optimize-auth-session-cache by @jay-kestrel</div>
+            <div class="rovo-card-pills">
+              <span class="rpill rpill-blue">Task</span>
+              <span class="rpill rpill-blue">3 Story Points</span>
+              <span class="rpill rpill-green">✔ Auto-Linked GHOST-1</span>
+            </div>
+            <div style="color:#c9d1d9;font-size:13px;line-height:1.4;">
+              Reconciled to Jira issue <strong>GHOST-1</strong>. Sprint velocity increased by 3 points.
+            </div>
+          </div>
+
+          <div style="color:#3fb950;font-weight:600;font-size:13px;">
+            ✔ Reconciled successfully without leaving Rovo Chat!
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Lower-Third Overlay -->
+  <footer class="lower-third">
+    <div class="lt-left">
+      <div class="lt-badge">Bonus Prize 2: Best Agents — Rovo</div>
+      <div>
+        <div class="lt-title">Atlassian Rovo Autonomous Auditor Agent</div>
+        <div class="lt-subtitle">Declared rovo:agent module executes conversational audit & reconciliation tools</div>
+      </div>
+    </div>
+    <div class="lt-pill">Conversational AI Inside Atlassian Rovo</div>
+  </footer>
+
+  <!-- Cursor -->
+  <svg id="cursor" class="dom-cursor" viewBox="0 0 24 24">
+    <path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87c.45 0 .67-.54.35-.85L5.85 2.85a.5.5 0 0 0-.35.36z" fill="#ffffff" stroke="#1d2125" stroke-width="1.5" stroke-linejoin="round"/>
+  </svg>
+
+  <script>
+    function easeInOutCubic(x) {
+      return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    }
+
+    window.renderAt = function(t) {
+      const drawer = document.getElementById('rovo-drawer');
+      const userMsg = document.getElementById('rovo-user-msg');
+      const typing = document.getElementById('rovo-typing');
+      const agentMsg = document.getElementById('rovo-agent-msg');
+      const cursor = document.getElementById('cursor');
+
+      // 1. Drawer slides in at t = 0.3s
+      drawer.classList.toggle('visible', t >= 0.3);
+
+      // 2. User message sends at t = 1.0s
+      userMsg.classList.toggle('visible', t >= 1.0);
+
+      // 3. Typing indicator from t: 1.5s to 3.8s
+      typing.style.display = (t >= 1.5 && t < 3.8) ? 'flex' : 'none';
+
+      // 4. Agent response card reveals at t >= 3.8s
+      agentMsg.classList.toggle('visible', t >= 3.8);
+
+      // 5. Cursor Choreography:
+      // t: 0 - 3.5s -> enters from left (1200, 400) -> into Rovo Chat (1550, 300)
+      // t: 3.5 - 7.0s -> hovers across Rovo agent card (1550, 500)
+      let cx = 1200, cy = 400;
+      if (t < 3.5) {
+        const p = easeInOutCubic(t / 3.5);
+        cx = 1200 + (1550 - 1200) * p;
+        cy = 400 + (300 - 400) * p;
+      } else {
+        const p = easeInOutCubic(Math.min((t - 3.5) / 3.0, 1));
+        cx = 1550;
+        cy = 300 + (500 - 300) * p;
+      }
+
+      cursor.style.left = cx + 'px';
+      cursor.style.top = cy + 'px';
+    };
+
+    let startTime = null;
+    function autoLoop(now) {
+      if (!startTime) startTime = now;
+      const t = (now - startTime) / 1000;
+      window.renderAt(t % 10.7);
+      requestAnimationFrame(autoLoop);
+    }
+    requestAnimationFrame(autoLoop);
+  </script>
+</body>
+</html>

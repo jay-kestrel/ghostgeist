@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scene 06 - Jira REST API v3 Issue GHOST-1</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 1920px;
+      height: 1080px;
+      background: #1d2125;
+      color: #f0f6fc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Top Jira Cloud Global Navigation */
+    .jira-top-nav {
+      height: 56px;
+      background: #161a1d;
+      border-bottom: 1px solid #2c333a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 10;
+    }
+    .jira-nav-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .jira-logo-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: white;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .jira-nav-links {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 14px;
+      color: #c9d1d9;
+    }
+    .jira-nav-item.active {
+      background: #22272b;
+      color: #579dff;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 6px;
+    }
+
+    /* Green Reconciled Toast Banner */
+    .reconciled-banner {
+      background: rgba(35, 134, 54, 0.22);
+      border-bottom: 1px solid #238636;
+      padding: 12px 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 10;
+      transform: translateY(-50px);
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .reconciled-banner.visible {
+      transform: translateY(0);
+    }
+    .banner-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #3fb950;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .banner-link {
+      color: #579dff;
+      font-weight: 700;
+      text-decoration: underline;
+      margin-left: 6px;
+      cursor: pointer;
+    }
+    .banner-tag {
+      background: #238636;
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 12px;
+    }
+
+    /* Jira Issue View Container */
+    .issue-container {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 2.8fr 1.2fr;
+      gap: 32px;
+      padding: 28px 60px 140px 60px;
+      overflow-y: auto;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+    }
+    .issue-container.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Left Column: Issue Content & ADF */
+    .issue-main {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .issue-breadcrumbs {
+      font-size: 13px;
+      color: #8b949e;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .issue-key-badge {
+      background: #22272b;
+      border: 1px solid #383f47;
+      color: #579dff;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+    .issue-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #f0f6fc;
+      line-height: 1.3;
+    }
+
+    /* Atlassian Document Format (ADF) Box */
+    .adf-container {
+      background: #22272b;
+      border: 1px solid #383f47;
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .adf-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .adf-badge {
+      background: rgba(12, 102, 228, 0.2);
+      border: 1px solid #0c66e4;
+      color: #579dff;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .adf-text {
+      font-size: 15px;
+      color: #c9d1d9;
+      line-height: 1.6;
+    }
+    .adf-code-block {
+      background: #161a1d;
+      border: 1px solid #383f47;
+      border-radius: 8px;
+      padding: 16px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px;
+      color: #79c0ff;
+      line-height: 1.5;
+    }
+
+    /* Bi-Directional Remote Link Card */
+    .remote-links-container {
+      background: #22272b;
+      border: 1px solid #383f47;
+      border-radius: 12px;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: all 0.3s;
+    }
+    .remote-links-container.pulse-active {
+      border-color: #238636;
+      box-shadow: 0 0 20px rgba(35, 134, 54, 0.3);
+    }
+    .remote-link-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #161a1d;
+      border: 1px solid #383f47;
+      border-radius: 8px;
+      padding: 12px 18px;
+    }
+    .link-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+    }
+    .link-title {
+      color: #579dff;
+      font-weight: 700;
+      text-decoration: underline;
+    }
+    .link-verified {
+      background: rgba(35, 134, 54, 0.2);
+      border: 1px solid #238636;
+      color: #3fb950;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 12px;
+    }
+
+    /* Right Sidebar: Attributes */
+    .issue-sidebar {
+      background: #22272b;
+      border: 1px solid #383f47;
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      height: fit-content;
+    }
+    .attr-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .attr-label {
+      font-size: 12px;
+      color: #8b949e;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .attr-val {
+      font-size: 14px;
+      font-weight: 600;
+      color: #f0f6fc;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pill-task {
+      background: #0c66e4;
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .pill-points {
+      background: #161a1d;
+      border: 1px solid #383f47;
+      color: #579dff;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 6px;
+    }
+    .pill-user {
+      background: rgba(188, 140, 255, 0.15);
+      border: 1px solid #bc8cff;
+      color: #d2a8ff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    /* Fixed 1:1 Lower-Third Pill */
+    .lower-third {
+      position: absolute;
+      bottom: 28px;
+      left: 60px;
+      right: 60px;
+      height: 76px;
+      background: rgba(13, 17, 23, 0.94);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(12, 102, 228, 0.4);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+      z-index: 20;
+    }
+    .lt-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .lt-badge {
+      background: linear-gradient(135deg, #0c66e4, #0052cc);
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .lt-text {
+      font-size: 20px;
+      font-weight: 700;
+      color: #f0f6fc;
+    }
+    .lt-pill {
+      background: rgba(35, 134, 54, 0.2);
+      border: 1px solid #238636;
+      color: #3fb950;
+      padding: 8px 18px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    /* Interactive DOM Cursor */
+    .dom-cursor {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      pointer-events: none;
+      z-index: 100;
+      transform: translate(-2px, -2px);
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+    }
+    .click-ripple {
+      position: absolute;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 2px solid #579dff;
+      background: rgba(87, 157, 255, 0.35);
+      transform: translate(-24px, -24px) scale(0);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 99;
+      transition: transform 0.35s ease-out, opacity 0.35s ease-out;
+    }
+  </style>
+</head>
+<body>
+  <!-- Jira Top Navigation -->
+  <header class="jira-top-nav">
+    <div class="jira-nav-left">
+      <div class="jira-logo-group">
+        <svg height="22" width="22" viewBox="0 0 24 24" fill="#0052cc"><path d="M11.53 2c0 2.4 1.97 4.35 4.35 4.35h1.78v1.74c0 2.4 1.97 4.35 4.35 4.35V2h-10.48zm-4.75 4.75c0 2.4 1.97 4.35 4.35 4.35h1.78v1.74c0 2.4 1.97 4.35 4.35 4.35V6.75H6.78zM2 11.53c0 2.4 1.97 4.35 4.35 4.35h1.78v1.74c0 2.4 1.97 4.35 4.35 4.35V11.53H2z"/></svg>
+        <span>Jira Cloud</span>
+      </div>
+      <div class="jira-nav-links">
+        <div class="jira-nav-item active">Projects</div>
+        <div class="jira-nav-item">Filters</div>
+        <div class="jira-nav-item">Dashboards</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Green Reconciled Toast Banner -->
+  <div class="reconciled-banner" id="toast-banner">
+    <div class="banner-left">
+      <svg width="20" height="20" viewBox="0 0 16 16" fill="#3fb950"><path d="M8 16A8 8 0 1 1 8 0a8 8 0 0 1 0 16Zm3.78-9.72a.751.751 0 0 0-.018-1.042.751.751 0 0 0-1.042-.018L6.75 9.19 5.28 7.72a.751.751 0 0 0-1.042.018.751.751 0 0 0-.018 1.042l2 2a.75.75 0 0 0 1.06 0Z"/></svg>
+      <span>Successfully reconciled PR #1 to Jira! Created Issue: <span class="banner-link" id="ticket-link">GHOST-1</span></span>
+    </div>
+    <div class="banner-tag">1-Click Reconciled</div>
+  </div>
+
+  <!-- Issue View Container -->
+  <main class="issue-container" id="issue-view">
+    <div class="issue-main">
+      <div class="issue-breadcrumbs">
+        <span>Projects</span> &bull; <span>GhostGeist</span> &bull; <span class="issue-key-badge">GHOST-1</span>
+      </div>
+
+      <h1 class="issue-title">Optimize authentication session cache and connection pool lifecycle</h1>
+
+      <!-- ADF Description -->
+      <div class="adf-container">
+        <div class="adf-label">
+          <span>Description (Atlassian Document Format ADF)</span>
+          <span class="adf-badge">Strict ADF v1 Syntax</span>
+        </div>
+        <div class="adf-text">
+          Reconciled engineering shadow work from GitHub PR #1. Implements automatic session eviction and connection pooling optimizations to prevent memory leaks during auth token validation.
+        </div>
+        <div class="adf-code-block">
+export class AuthSessionCache {
+  constructor(options = {}) {
+    this.maxAge = options.maxAge || 3600;
+    this.pool = new ConnectionPool({ evictionInterval: 300 });
+  }
+}
+        </div>
+      </div>
+
+      <!-- Remote Links Section -->
+      <div class="remote-links-container" id="remote-links-box">
+        <div class="adf-label">
+          <span>Issue Links & Remote Pull Requests</span>
+          <span class="adf-badge">Bi-Directional Synced</span>
+        </div>
+        <div class="remote-link-row">
+          <div class="link-info">
+            <svg height="18" width="18" viewBox="0 0 16 16" fill="#f0f6fc"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>
+            <span class="link-title">GitHub PR #1: feat/optimize-auth-session-cache</span>
+            <span style="color:#8b949e;font-size:12px;">(jay-kestrel/ghostgeist)</span>
+          </div>
+          <span class="link-verified">✔ Bi-Directional Link Active</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar Attributes -->
+    <aside class="issue-sidebar">
+      <div class="attr-row">
+        <span class="attr-label">Status</span>
+        <span class="attr-val"><span style="color:#579dff;">●</span> To Do</span>
+      </div>
+      <div class="attr-row">
+        <span class="attr-label">Issue Type</span>
+        <span class="attr-val"><span class="pill-task">Task</span></span>
+      </div>
+      <div class="attr-row">
+        <span class="attr-label">Story Points</span>
+        <span class="attr-val"><span class="pill-points">3 pts</span> (Fibonacci)</span>
+      </div>
+      <div class="attr-row">
+        <span class="attr-label">Reporter Attribution</span>
+        <span class="attr-val">Jayaram Hariharan <span class="pill-user">api.asUser()</span></span>
+      </div>
+      <div class="attr-row">
+        <span class="attr-label">Sprint</span>
+        <span class="attr-val">GHOST Sprint 1 (Active)</span>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Lower-Third Pill -->
+  <footer class="lower-third">
+    <div class="lt-left">
+      <div class="lt-badge">Atlassian REST API v3</div>
+      <div class="lt-text">Jira Cloud REST API v3 | Strict ADF Trees & Bi-Directional Remote Links</div>
+    </div>
+    <div class="lt-pill">Zero empty text nodes &bull; Permission-attributed asUser()</div>
+  </footer>
+
+  <!-- Cursor & Ripple -->
+  <div id="click-ripple" class="click-ripple"></div>
+  <svg id="cursor" class="dom-cursor" viewBox="0 0 24 24">
+    <path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87c.45 0 .67-.54.35-.85L5.85 2.85a.5.5 0 0 0-.35.36z" fill="#ffffff" stroke="#1d2125" stroke-width="1.5" stroke-linejoin="round"/>
+  </svg>
+
+  <script>
+    function easeInOutCubic(x) {
+      return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    }
+
+    window.renderAt = function(t) {
+      const toast = document.getElementById('toast-banner');
+      const issueView = document.getElementById('issue-view');
+      const remoteLinks = document.getElementById('remote-links-box');
+      const cursor = document.getElementById('cursor');
+      const ripple = document.getElementById('click-ripple');
+
+      // 1. Toast banner slides down at t = 0.2s
+      toast.classList.toggle('visible', t >= 0.2);
+
+      // 2. Click on GHOST-1 ticket link at t = 1.0s
+      let cx = 580, cy = 80;
+      if (t >= 0.9 && t <= 1.2) {
+        ripple.style.left = '580px';
+        ripple.style.top = '80px';
+        ripple.style.transform = 'translate(-24px, -24px) scale(1.6)';
+        ripple.style.opacity = '1';
+      } else {
+        ripple.style.opacity = '0';
+        ripple.style.transform = 'translate(-24px, -24px) scale(0)';
+      }
+
+      // 3. Issue view opens at t >= 1.2s
+      issueView.classList.toggle('visible', t >= 1.2);
+
+      // 4. Remote links pulse active at t >= 7.0s
+      remoteLinks.classList.toggle('pulse-active', t >= 7.0);
+
+      // 5. Cursor Choreography:
+      // t: 0 - 1.2s -> on toast link (580, 80)
+      // t: 1.2 - 5.0s -> moves down to ADF code block (650, 420)
+      // t: 5.0 - 8.5s -> moves to reporter attribution (1550, 480)
+      // t: 8.5 - 11.5s -> moves to remote link (650, 620)
+      if (t < 1.2) {
+        cx = 580; cy = 80;
+      } else if (t >= 1.2 && t < 5.0) {
+        const p = easeInOutCubic((t - 1.2) / 3.8);
+        cx = 580 + (650 - 580) * p;
+        cy = 80 + (420 - 80) * p;
+      } else if (t >= 5.0 && t < 8.5) {
+        const p = easeInOutCubic((t - 5.0) / 3.5);
+        cx = 650 + (1550 - 650) * p;
+        cy = 420 + (480 - 420) * p;
+      } else {
+        const p = easeInOutCubic(Math.min((t - 8.5) / 2.5, 1));
+        cx = 1550 + (650 - 1550) * p;
+        cy = 480 + (620 - 480) * p;
+      }
+
+      cursor.style.left = cx + 'px';
+      cursor.style.top = cy + 'px';
+    };
+
+    let startTime = null;
+    function autoLoop(now) {
+      if (!startTime) startTime = now;
+      const t = (now - startTime) / 1000;
+      window.renderAt(t % 12.2);
+      requestAnimationFrame(autoLoop);
+    }
+    requestAnimationFrame(autoLoop);
+  </script>
+</body>
+</html>

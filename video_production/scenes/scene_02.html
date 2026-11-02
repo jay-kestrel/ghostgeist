@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scene 02 - Diff Deep Dive & Audit Risks</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 1920px;
+      height: 1080px;
+      background: #0d1117;
+      color: #f0f6fc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Ambient red hazard glow */
+    .hazard-glow {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 1000px;
+      height: 700px;
+      background: radial-gradient(circle, rgba(248, 81, 73, 0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* Top GitHub PR Header */
+    .gh-header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 24px 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 10;
+    }
+    .gh-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .gh-breadcrumb {
+      font-size: 15px;
+      color: #58a6ff;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+    }
+    .gh-pr-heading {
+      font-size: 26px;
+      font-weight: 700;
+      color: #f0f6fc;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .gh-pr-num { color: #8b949e; font-weight: 400; }
+    .gh-meta-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 4px;
+    }
+    .badge-open {
+      background: #238636;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .branch-spec { font-size: 14px; color: #8b949e; }
+    .code-chip {
+      background: #21262d;
+      color: #58a6ff;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-family: monospace;
+    }
+
+    /* Red Alert Border Container */
+    .danger-frame {
+      margin: 28px 60px 140px 60px;
+      flex: 1;
+      border: 2px solid #f85149;
+      border-radius: 16px;
+      background: #161b22;
+      box-shadow: 0 0 32px rgba(248, 81, 73, 0.25);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Missing Key Alert Banner */
+    .missing-key-bar {
+      background: linear-gradient(90deg, rgba(248, 81, 73, 0.25), rgba(248, 81, 73, 0.1));
+      border-bottom: 1px solid rgba(248, 81, 73, 0.4);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .missing-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #ff7b72;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    /* Risk Badges Grid with Dynamic Pop-In */
+    .risk-badges {
+      display: flex;
+      gap: 14px;
+    }
+    .risk-pill {
+      background: rgba(248, 81, 73, 0.2);
+      border: 1px solid #f85149;
+      color: #ff7b72;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: 0 4px 12px rgba(248, 81, 73, 0.2);
+      transform: scale(0);
+      opacity: 0;
+      transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+    }
+    .risk-pill.visible {
+      transform: scale(1);
+      opacity: 1;
+    }
+
+    /* Diff Viewer */
+    .diff-container {
+      flex: 1;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      background: #0d1117;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    .diff-file-header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 12px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #c9d1d9;
+      font-weight: 600;
+    }
+    .diff-row {
+      display: flex;
+      width: 100%;
+      transition: background 0.2s;
+    }
+    .diff-row.add {
+      background: rgba(46, 160, 67, 0.15);
+      border-left: 4px solid #3fb950;
+    }
+    .diff-row.hunk {
+      background: rgba(56, 139, 253, 0.15);
+      color: #79c0ff;
+      padding: 6px 28px;
+    }
+    .diff-row.highlighted {
+      background: rgba(248, 81, 73, 0.25) !important;
+      border-left: 4px solid #f85149 !important;
+    }
+    .diff-num {
+      width: 50px;
+      color: #6e7681;
+      text-align: right;
+      padding: 4px 12px;
+      user-select: none;
+      font-size: 13px;
+    }
+    .diff-sign {
+      width: 28px;
+      text-align: center;
+      padding: 4px 0;
+      font-weight: 700;
+    }
+    .diff-sign.add { color: #3fb950; }
+    .diff-code {
+      flex: 1;
+      padding: 4px 12px;
+      white-space: pre;
+      color: #e6edf3;
+    }
+    .hl-kw { color: #ff7b72; font-weight: 600; }
+    .hl-cls { color: #d2a8ff; font-weight: 600; }
+    .hl-fn { color: #d2a8ff; }
+    .hl-var { color: #ffa657; }
+
+    /* Fixed Lower-Third Pill */
+    .lower-third {
+      position: absolute;
+      bottom: 28px;
+      left: 60px;
+      right: 60px;
+      height: 76px;
+      background: rgba(13, 17, 23, 0.94);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(248, 81, 73, 0.4);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+      z-index: 20;
+    }
+    .lt-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .lt-alert-badge {
+      background: #da3633;
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .lt-text {
+      font-size: 20px;
+      font-weight: 700;
+      color: #f0f6fc;
+    }
+    .lt-pill {
+      background: rgba(248, 81, 73, 0.2);
+      border: 1px solid #f85149;
+      color: #ff7b72;
+      padding: 8px 18px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    /* Interactive DOM Cursor */
+    .dom-cursor {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      pointer-events: none;
+      z-index: 100;
+      transform: translate(-2px, -2px);
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+    }
+  </style>
+</head>
+<body>
+  <div class="hazard-glow"></div>
+
+  <!-- Top GitHub Header -->
+  <header class="gh-header">
+    <div class="gh-title-group">
+      <div class="gh-breadcrumb">jay-kestrel / ghostgeist / pull / 1</div>
+      <div class="gh-pr-heading">
+        <span>feat: optimize auth session cache and pool lifecycle</span>
+        <span class="gh-pr-num">#1</span>
+      </div>
+      <div class="gh-meta-row">
+        <span class="badge-open">Open</span>
+        <span class="branch-spec">
+          <strong>jay-kestrel</strong> wants to merge 1 commit into <span class="code-chip">main</span> from <span class="code-chip">feat/optimize-auth-session-cache</span>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Danger Frame & Diff View -->
+  <main class="danger-frame" id="danger-frame">
+    <div class="missing-key-bar">
+      <div class="missing-left">
+        <svg width="20" height="20" viewBox="0 0 16 16" fill="#f85149"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/></svg>
+        <span>ALERT: NO ASSOCIATED JIRA ISSUE KEY DETECTED</span>
+      </div>
+      <div class="risk-badges">
+        <div class="risk-pill" id="pill-1">🔴 Lost Velocity (-3 to -5 pts)</div>
+        <div class="risk-pill" id="pill-2">🔴 SOC-2 Audit Risk</div>
+        <div class="risk-pill" id="pill-3">🔴 Unbudgeted Hours</div>
+      </div>
+    </div>
+
+    <div class="diff-container">
+      <div class="diff-file-header">
+        <span>auth-cache.js &bull; +28 lines modified</span>
+        <span style="font-size:13px;color:#8b949e;">Sensitive Authentication Middleware</span>
+      </div>
+
+      <div class="diff-row hunk">
+        <span>@@ -0,0 +1,28 @@ Core Authentication & Session Eviction</span>
+      </div>
+
+      <div class="diff-row add" id="row-1">
+        <div class="diff-num">1</div>
+        <div class="diff-sign add">+</div>
+        <div class="diff-code"><span class="hl-kw">export class</span> <span class="hl-cls">AuthSessionCache</span> {</div>
+      </div>
+      <div class="diff-row add" id="row-2">
+        <div class="diff-num">2</div>
+        <div class="diff-sign add">+</div>
+        <div class="diff-code">  <span class="hl-fn">constructor</span>(options = {}) {</div>
+      </div>
+      <div class="diff-row add" id="row-3">
+        <div class="diff-num">3</div>
+        <div class="diff-sign add">+</div>
+        <div class="diff-code">    <span class="hl-kw">this</span>.maxAge = options.maxAge || <span class="hl-var">3600</span>;</div>
+      </div>
+      <div class="diff-row add" id="row-4">
+        <div class="diff-num">4</div>
+        <div class="diff-sign add">+</div>
+        <div class="diff-code">    <span class="hl-kw">this</span>.pool = <span class="hl-kw">new</span> <span class="hl-cls">ConnectionPool</span>({ evictionInterval: <span class="hl-var">300</span> });</div>
+      </div>
+      <div class="diff-row add" id="row-5">
+        <div class="diff-num">5</div>
+        <div class="diff-sign add">+</div>
+        <div class="diff-code">    <span class="hl-kw">this</span>.sessionStore = <span class="hl-kw">new</span> <span class="hl-cls">Map</span>();</div>
+      </div>
+      <div class="diff-row add" id="row-6">
+        <div class="diff-num">6</div>
+        <div class="diff-sign add">+</div>
+        <div class="diff-code">  }</div>
+      </div>
+      <div class="diff-row add" id="row-7">
+        <div class="diff-num">7</div>
+        <div class="diff-sign add">+</div>
+        <div class="diff-code">  <span class="hl-kw">async</span> <span class="hl-fn">evictStaleSessions</span>() {</div>
+      </div>
+      <div class="diff-row add" id="row-8">
+        <div class="diff-num">8</div>
+        <div class="diff-sign add">+</div>
+        <div class="diff-code">    <span class="hl-kw">const</span> expired = <span class="hl-kw">await</span> <span class="hl-kw">this</span>.pool.<span class="hl-fn">getExpired</span>(<span class="hl-kw">this</span>.maxAge);</div>
+      </div>
+      <div class="diff-row add" id="row-9">
+        <div class="diff-num">9</div>
+        <div class="diff-sign add">+</div>
+        <div class="diff-code">    <span class="hl-kw">await</span> <span class="hl-kw">this</span>.pool.<span class="hl-fn">purge</span>(expired);</div>
+      </div>
+      <div class="diff-row add" id="row-10">
+        <div class="diff-num">10</div>
+        <div class="diff-sign add">+</div>
+        <div class="diff-code">  }</div>
+      </div>
+      <div class="diff-row add" id="row-11">
+        <div class="diff-num">11</div>
+        <div class="diff-sign add">+</div>
+        <div class="diff-code">  <span class="hl-fn">validateToken</span>(token) {</div>
+      </div>
+      <div class="diff-row add" id="row-12">
+        <div class="diff-num">12</div>
+        <div class="diff-sign add">+</div>
+        <div class="diff-code">    <span class="hl-kw">return</span> <span class="hl-kw">this</span>.sessionStore.<span class="hl-fn">has</span>(token);</div>
+      </div>
+      <div class="diff-row add" id="row-13">
+        <div class="diff-num">13</div>
+        <div class="diff-sign add">+</div>
+        <div class="diff-code">  }</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Lower Third Pill -->
+  <footer class="lower-third">
+    <div class="lt-left">
+      <div class="lt-alert-badge">Audit Alert</div>
+      <div class="lt-text">Problem: 20-30% Untracked Bandwidth | SOC-2 & Sprint Blindspots</div>
+    </div>
+    <div class="lt-pill">Emergency Patches & Hotfixes Bypassing Jira</div>
+  </footer>
+
+  <!-- Cursor -->
+  <svg id="cursor" class="dom-cursor" viewBox="0 0 24 24">
+    <path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87c.45 0 .67-.54.35-.85L5.85 2.85a.5.5 0 0 0-.35.36z" fill="#ffffff" stroke="#1d2125" stroke-width="1.5" stroke-linejoin="round"/>
+  </svg>
+
+  <script>
+    function easeInOutCubic(x) {
+      return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    }
+
+    window.renderAt = function(t) {
+      // 1. Staggered risk pill pop-ins:
+      // Pill 1 @ 2.5s ("leaving sprint burndowns flatlined")
+      const pill1 = document.getElementById('pill-1');
+      pill1.classList.toggle('visible', t >= 2.5);
+
+      // Pill 2 @ 5.0s ("release notes incomplete")
+      const pill2 = document.getElementById('pill-2');
+      pill2.classList.toggle('visible', t >= 5.0);
+
+      // Pill 3 @ 7.5s ("engineering capacity invisible")
+      const pill3 = document.getElementById('pill-3');
+      pill3.classList.toggle('visible', t >= 7.5);
+
+      // 2. Diff code highlight tracing (lines 7 to 9: evictStaleSessions)
+      const isCodeHighlight = (t >= 1.0 && t <= 5.5);
+      ['row-7', 'row-8', 'row-9'].forEach(id => {
+        document.getElementById(id).classList.toggle('highlighted', isCodeHighlight);
+      });
+
+      // 3. Danger border pulsation
+      const dangerFrame = document.getElementById('danger-frame');
+      const pulseShadow = 24 + 14 * Math.sin(t * 5);
+      dangerFrame.style.boxShadow = `0 0 ${pulseShadow}px rgba(248, 81, 73, 0.4)`;
+
+      // 4. Cursor Movement:
+      // t: 0 - 3.5s -> traces diff code (400, 480) -> (500, 520)
+      // t: 3.5 - 6.0s -> moves up to Pill 1 & Pill 2 (1200, 180)
+      // t: 6.0 - 9.0s -> hovers across Pill 2 & Pill 3 (1500, 180)
+      const cursor = document.getElementById('cursor');
+      let cx = 400, cy = 480;
+      if (t < 3.5) {
+        cx = 400 + 40 * Math.sin(t * 2);
+        cy = 480 + 20 * Math.cos(t * 2);
+      } else if (t >= 3.5 && t <= 6.0) {
+        const p = easeInOutCubic((t - 3.5) / 2.5);
+        cx = 440 + (1200 - 440) * p;
+        cy = 480 + (180 - 480) * p;
+      } else {
+        const p = easeInOutCubic(Math.min((t - 6.0) / 2.5, 1));
+        cx = 1200 + (1520 - 1200) * p;
+        cy = 180;
+      }
+      cursor.style.left = cx + 'px';
+      cursor.style.top = cy + 'px';
+    };
+
+    let startTime = null;
+    function autoLoop(now) {
+      if (!startTime) startTime = now;
+      const t = (now - startTime) / 1000;
+      window.renderAt(t % 10.9);
+      requestAnimationFrame(autoLoop);
+    }
+    requestAnimationFrame(autoLoop);
+  </script>
+</body>
+</html>

@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scene 09 - Marketplace Architecture & Security</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 1920px;
+      height: 1080px;
+      background: #0d1117;
+      color: #f0f6fc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Ambient Tech Grid Background */
+    .grid-bg {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(48, 54, 61, 0.25) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(48, 54, 61, 0.25) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+
+    /* Top Bar */
+    .top-bar {
+      height: 56px;
+      background: rgba(13, 17, 23, 0.95);
+      border-bottom: 1px solid #30363d;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 40px;
+      z-index: 10;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .status-chip {
+      background: rgba(35, 134, 54, 0.2);
+      border: 1px solid #238636;
+      color: #3fb950;
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    /* Main Split: Terminal vs Architecture Diagram */
+    .montage-container {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1.15fr;
+      gap: 32px;
+      padding: 24px 40px 140px 40px;
+      z-index: 5;
+    }
+
+    /* Left: Terminal Window */
+    .terminal-window {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    }
+    .term-titlebar {
+      height: 40px;
+      background: #0d1117;
+      border-bottom: 1px solid #30363d;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .dots { display: flex; gap: 6px; }
+    .dot { width: 11px; height: 11px; border-radius: 50%; }
+    .dot-red { background: #ff5f56; }
+    .dot-yellow { background: #ffbd2e; }
+    .dot-green { background: #27c93f; }
+    .term-title { font-size: 12px; color: #8b949e; font-family: monospace; }
+    .term-body {
+      flex: 1;
+      padding: 22px 24px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13.5px;
+      line-height: 1.75;
+      color: #c9d1d9;
+    }
+    .t-cmd { color: #f0f6fc; font-weight: 700; }
+    .t-ok { color: #3fb950; font-weight: 600; }
+    .t-sub { color: #8b949e; margin-left: 20px; }
+    .t-highlight { color: #58a6ff; font-weight: 700; }
+    .term-line { opacity: 0; transition: opacity 0.2s; }
+    .term-line.visible { opacity: 1; }
+
+    /* Right: Architecture & Security Diagram */
+    .arch-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+      padding: 22px 24px;
+    }
+    .arch-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #f0f6fc;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .badge-iso {
+      background: rgba(12, 102, 228, 0.2);
+      border: 1px solid #0c66e4;
+      color: #579dff;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+    }
+
+    /* Top Flow Pipeline */
+    .pipeline-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 14px 20px;
+      margin-bottom: 16px;
+    }
+    .pipe-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #c9d1d9;
+    }
+    .pipe-icon { font-size: 20px; }
+    .pipe-arrow {
+      color: #579dff;
+      font-size: 16px;
+      position: relative;
+    }
+    .packet-dot {
+      width: 8px;
+      height: 8px;
+      background: #579dff;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #579dff;
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    /* Diagram Nodes */
+    .diagram-flow {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      justify-content: center;
+    }
+    .node-box {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .node-box.forge-sandbox {
+      border: 2px solid #0c66e4;
+      background: rgba(12, 102, 228, 0.08);
+      box-shadow: 0 0 20px rgba(12, 102, 228, 0.2);
+    }
+    .node-box.security-kvs {
+      border: 2px solid #238636;
+      background: rgba(35, 134, 54, 0.08);
+    }
+    .node-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .node-icon { font-size: 22px; }
+    .node-info h4 { font-size: 14px; font-weight: 700; color: #f0f6fc; margin-bottom: 2px; }
+    .node-info p { font-size: 12px; color: #8b949e; }
+    .node-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 10px;
+    }
+    .np-blue { background: #0c66e4; color: white; }
+    .np-green { background: #238636; color: white; }
+    .np-purple { background: #8957e5; color: white; }
+
+    /* Strict Egress Whitelist Box */
+    .egress-whitelist {
+      background: #0d1117;
+      border: 1px dashed #30363d;
+      border-radius: 8px;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #8b949e;
+      font-family: monospace;
+    }
+    .egress-item { color: #58a6ff; font-weight: 700; }
+
+    /* Fixed 1:1 Lower-Third Overlay */
+    .lower-third {
+      position: absolute;
+      bottom: 28px;
+      left: 60px;
+      right: 60px;
+      height: 84px;
+      background: rgba(13, 17, 23, 0.94);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(35, 134, 54, 0.4);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+      z-index: 20;
+    }
+    .lt-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .lt-badge {
+      background: linear-gradient(135deg, #238636, #2ea043);
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      box-shadow: 0 0 16px rgba(35, 134, 54, 0.4);
+    }
+    .lt-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f0f6fc;
+      margin-bottom: 2px;
+    }
+    .lt-subtitle {
+      font-size: 14px;
+      color: #8b949e;
+    }
+    .lt-pill {
+      background: rgba(35, 134, 54, 0.2);
+      border: 1px solid #238636;
+      color: #3fb950;
+      padding: 8px 18px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    /* Interactive DOM Cursor */
+    .dom-cursor {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      pointer-events: none;
+      z-index: 100;
+      transform: translate(-2px, -2px);
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+    }
+  </style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+
+  <!-- Top Bar -->
+  <header class="top-bar">
+    <div class="brand">
+      <span>🛡️ GhostGeist Architecture & Security Verification</span>
+    </div>
+    <div class="status-chip">✔ 100% Marketplace Compliant</div>
+  </header>
+
+  <!-- Main Montage -->
+  <main class="montage-container">
+    <!-- Left: Terminal -->
+    <div class="terminal-window">
+      <div class="term-titlebar">
+        <div class="dots">
+          <div class="dot dot-red"></div>
+          <div class="dot dot-yellow"></div>
+          <div class="dot dot-green"></div>
+        </div>
+        <div class="term-title">bash &bull; forge lint & validation</div>
+      </div>
+      <div class="term-body">
+        <div class="term-line" id="tl-1"><span class="t-cmd">$ forge lint</span></div>
+        <div class="term-line" id="tl-2"><span class="t-ok">✔</span> Validating manifest.yml syntax and declared scopes...</div>
+        <div class="term-line" id="tl-3"><span class="t-ok">✔</span> Checking rovo:mcp, rovo:agent, and jira:projectPage...</div>
+        <div class="term-line" id="tl-4"><span class="t-ok">✔</span> Verifying Atlassian Design System tokens...</div>
+        <div class="term-line" id="tl-5" class="t-sub"><span class="t-highlight">14 files checked: 0 problems, 0 errors, 0 warnings</span></div>
+        <br>
+        <div class="term-line" id="tl-6"><span class="t-cmd">$ forge settings:list</span></div>
+        <div class="term-line" id="tl-7"><span class="t-ok">✔</span> Runtime: <span class="t-highlight">Node 24 Serverless Isolated Sandbox</span></div>
+        <div class="term-line" id="tl-8"><span class="t-ok">✔</span> Storage: <span class="t-highlight">@forge/kvs (AES-256 Encrypted)</span></div>
+        <div class="term-line" id="tl-9"><span class="t-ok">✔</span> Secret Egress: <span class="t-highlight">ZERO Secret Leakage to Client Bridge</span></div>
+        <br>
+        <div class="term-line" id="tl-10" style="color:#3fb950;font-weight:700;">All marketplace security & verification checks passed.</div>
+      </div>
+    </div>
+
+    <!-- Right: Architecture Diagram -->
+    <div class="arch-card">
+      <div class="arch-title">
+        <span>Forge Multi-Module Security Architecture</span>
+        <span class="badge-iso">SOC-2 & Zero-Trust Ready</span>
+      </div>
+
+      <!-- Live Data Flow Pipeline -->
+      <div class="pipeline-row">
+        <div class="pipe-node">
+          <div class="pipe-icon">🐙</div>
+          <span>GitHub API</span>
+        </div>
+        <div class="pipe-arrow">
+          ⇄
+          <div class="packet-dot" id="packet-left"></div>
+        </div>
+        <div class="pipe-node" style="color:#579dff;">
+          <div class="pipe-icon">⚡</div>
+          <span>Forge Runtime (Node 24)</span>
+        </div>
+        <div class="pipe-arrow">
+          ⇄
+          <div class="packet-dot" id="packet-right"></div>
+        </div>
+        <div class="pipe-node">
+          <div class="pipe-icon">💎</div>
+          <span>Gemini & Jira Cloud</span>
+        </div>
+      </div>
+
+      <div class="diagram-flow">
+        <div class="node-box forge-sandbox">
+          <div class="node-left">
+            <div class="node-icon">⚡</div>
+            <div class="node-info">
+              <h4>Atlassian Forge Serverless Runtime</h4>
+              <p>Isolated backend compute &bull; Node 24 runtime &bull; 25s execution window</p>
+            </div>
+          </div>
+          <span class="node-pill np-blue">Zero Host Overhead</span>
+        </div>
+
+        <div class="node-box security-kvs">
+          <div class="node-left">
+            <div class="node-icon">🔒</div>
+            <div class="node-info">
+              <h4>Encrypted Storage (@forge/kvs)</h4>
+              <p>Tokens masked on server-side &bull; Zero client bridge exposure</p>
+            </div>
+          </div>
+          <span class="node-pill np-green">Encrypted At Rest</span>
+        </div>
+
+        <div class="node-box">
+          <div class="node-left">
+            <div class="node-icon">🌐</div>
+            <div class="node-info">
+              <h4>Declared External Network Egress</h4>
+              <p>Strict outbound whitelist strictly limited to GitHub & Google AI</p>
+            </div>
+          </div>
+          <span class="node-pill np-purple">Strict Firewall</span>
+        </div>
+
+        <div class="egress-whitelist">
+          <span>Outbound Egress:</span>
+          <span class="egress-item">api.github.com</span> &bull;
+          <span class="egress-item">generativelanguage.googleapis.com</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Lower-Third Overlay -->
+  <footer class="lower-third">
+    <div class="lt-left">
+      <div class="lt-badge">Bonus Prize 3: Best Marketplace App</div>
+      <div>
+        <div class="lt-title">Serverless Forge & Encrypted Key-Value Storage</div>
+        <div class="lt-subtitle">100% serverless Atlassian Forge runtime &bull; Zero secret egress to client bridge</div>
+      </div>
+    </div>
+    <div class="lt-pill">Zero Egress Leakage &bull; Node 24 Runtime</div>
+  </footer>
+
+  <!-- Cursor -->
+  <svg id="cursor" class="dom-cursor" viewBox="0 0 24 24">
+    <path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87c.45 0 .67-.54.35-.85L5.85 2.85a.5.5 0 0 0-.35.36z" fill="#ffffff" stroke="#1d2125" stroke-width="1.5" stroke-linejoin="round"/>
+  </svg>
+
+  <script>
+    function easeInOutCubic(x) {
+      return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    }
+
+    window.renderAt = function(t) {
+      // 1. Line-by-line terminal output
+      document.getElementById('tl-1').classList.toggle('visible', t >= 0.3);
+      document.getElementById('tl-2').classList.toggle('visible', t >= 0.8);
+      document.getElementById('tl-3').classList.toggle('visible', t >= 1.4);
+      document.getElementById('tl-4').classList.toggle('visible', t >= 2.0);
+      document.getElementById('tl-5').classList.toggle('visible', t >= 2.6);
+
+      document.getElementById('tl-6').classList.toggle('visible', t >= 4.5);
+      document.getElementById('tl-7').classList.toggle('visible', t >= 5.0);
+      document.getElementById('tl-8').classList.toggle('visible', t >= 5.6);
+      document.getElementById('tl-9').classList.toggle('visible', t >= 6.2);
+      document.getElementById('tl-10').classList.toggle('visible', t >= 7.0);
+
+      // 2. Animated data packets in flow diagram
+      const packetL = document.getElementById('packet-left');
+      const packetR = document.getElementById('packet-right');
+      const posL = (Math.sin(t * 4) + 1) / 2;
+      const posR = (Math.cos(t * 4) + 1) / 2;
+      packetL.style.left = (posL * 24 - 4) + 'px';
+      packetR.style.left = (posR * 24 - 4) + 'px';
+
+      // 3. Cursor movement
+      // t: 0 - 4.5s -> traces terminal checkmarks (420, 260)
+      // t: 4.5 - 8.5s -> moves across to Architecture nodes (1350, 420)
+      const cursor = document.getElementById('cursor');
+      let cx = 420, cy = 260;
+      if (t < 4.5) {
+        cx = 420 + 20 * Math.sin(t * 2);
+        cy = 260 + 40 * Math.min(t / 4.5, 1);
+      } else {
+        const p = easeInOutCubic(Math.min((t - 4.5) / 3.0, 1));
+        cx = 420 + (1350 - 420) * p;
+        cy = 300 + (420 - 300) * p;
+      }
+      cursor.style.left = cx + 'px';
+      cursor.style.top = cy + 'px';
+    };
+
+    let startTime = null;
+    function autoLoop(now) {
+      if (!startTime) startTime = now;
+      const t = (now - startTime) / 1000;
+      window.renderAt(t % 10.6);
+      requestAnimationFrame(autoLoop);
+    }
+    requestAnimationFrame(autoLoop);
+  </script>
+</body>
+</html>

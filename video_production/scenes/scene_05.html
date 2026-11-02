@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scene 05 - Google Gemini 3.8 Flash Triage Modal</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 1920px;
+      height: 1080px;
+      background: #1d2125;
+      color: #f0f6fc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Top Jira Cloud Global Navigation (from Scene 04) */
+    .jira-top-nav {
+      height: 56px;
+      background: #161a1d;
+      border-bottom: 1px solid #2c333a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 2;
+    }
+    .jira-nav-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .jira-logo-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: white;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .jira-nav-links {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 14px;
+      color: #c9d1d9;
+    }
+    .jira-nav-item.active {
+      background: #22272b;
+      color: #579dff;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 6px;
+    }
+
+    /* Underlying Command Center (Visible beneath frosted backdrop) */
+    .underlying-content {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      position: relative;
+      filter: blur(4px);
+      opacity: 0.6;
+    }
+    .jira-sidebar {
+      width: 280px;
+      background: #161a1d;
+      border-right: 1px solid #2c333a;
+      padding: 24px 16px;
+    }
+    .forge-main-bg {
+      flex: 1;
+      padding: 32px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .dummy-card-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      height: 120px;
+    }
+    .dummy-card { background: #22272b; border-radius: 12px; }
+    .dummy-table { height: 300px; background: #22272b; border-radius: 12px; }
+
+    /* Dimmed Frosted Backdrop */
+    .backdrop-dim {
+      position: absolute;
+      inset: 0;
+      background: rgba(13, 17, 23, 0.72);
+      backdrop-filter: blur(8px);
+      z-index: 5;
+    }
+
+    /* Modal Dialog Window */
+    .modal-container {
+      position: absolute;
+      top: 48%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.95);
+      width: 900px;
+      background: #1d2125;
+      border: 1px solid #383f47;
+      border-radius: 16px;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8), 0 0 40px rgba(88, 166, 255, 0.15);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      opacity: 0;
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s;
+    }
+    .modal-container.visible {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    /* Modal Header */
+    .modal-header {
+      background: #161a1d;
+      border-bottom: 1px solid #2c333a;
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-title-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .sparkle-icon {
+      font-size: 24px;
+      background: linear-gradient(135deg, #79c0ff, #d2a8ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: inline-block;
+      transition: transform 0.3s;
+    }
+    .modal-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #f0f6fc;
+    }
+    .gemini-pill {
+      background: linear-gradient(135deg, rgba(88, 166, 255, 0.2), rgba(188, 140, 255, 0.2));
+      border: 1px solid rgba(188, 140, 255, 0.5);
+      color: #d2a8ff;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Modal Body */
+    .modal-body {
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .form-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .text-input {
+      background: #22272b;
+      border: 2px solid #383f47;
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: #f0f6fc;
+      font-size: 15px;
+      font-weight: 600;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .text-input.focused {
+      border-color: #0c66e4;
+      box-shadow: 0 0 16px rgba(12, 102, 228, 0.4);
+    }
+
+    /* Issue Type & Story Points Row */
+    .row-selectors {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+    .pill-opt {
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      border: 1px solid #383f47;
+      background: #22272b;
+      color: #8b949e;
+      transition: all 0.2s;
+    }
+    .pill-opt.active {
+      background: #0c66e4 !important;
+      color: white !important;
+      border-color: #0c66e4 !important;
+      box-shadow: 0 0 12px rgba(12, 102, 228, 0.4) !important;
+    }
+    .point-opt {
+      width: 44px;
+      height: 38px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 700;
+      border: 1px solid #383f47;
+      background: #22272b;
+      color: #8b949e;
+      transition: all 0.2s;
+    }
+    .point-opt.active {
+      background: #0c66e4 !important;
+      color: white !important;
+      border-color: #0c66e4 !important;
+      box-shadow: 0 0 12px rgba(12, 102, 228, 0.4) !important;
+    }
+
+    /* Rationale Card */
+    .rationale-card {
+      background: rgba(88, 166, 255, 0.08);
+      border: 1px solid rgba(88, 166, 255, 0.3);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      gap: 12px;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+    }
+    .rationale-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .rationale-icon { font-size: 20px; }
+    .rationale-content {
+      font-size: 13px;
+      color: #c9d1d9;
+      line-height: 1.5;
+    }
+    .rationale-title {
+      font-weight: 700;
+      color: #579dff;
+      margin-bottom: 4px;
+    }
+
+    /* Duplicate Check Success Alert */
+    .alert-success {
+      background: rgba(35, 134, 54, 0.15);
+      border: 1px solid #238636;
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #3fb950;
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+    }
+    .alert-success.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Modal Footer */
+    .modal-footer {
+      background: #161a1d;
+      border-top: 1px solid #2c333a;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+    .btn-cancel {
+      background: transparent;
+      border: 1px solid #383f47;
+      color: #c9d1d9;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .btn-create {
+      background: #0c66e4;
+      border: none;
+      color: white;
+      padding: 10px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 0 20px rgba(12, 102, 228, 0.5);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-create.hovered {
+      background: #0052cc;
+      box-shadow: 0 0 28px rgba(87, 157, 255, 0.8);
+      transform: scale(1.03);
+    }
+    .btn-create.active-click {
+      transform: scale(0.96);
+      background: #0043a8;
+    }
+
+    /* Fixed 1:1 Lower-Third Overlay */
+    .lower-third {
+      position: absolute;
+      bottom: 28px;
+      left: 60px;
+      right: 60px;
+      height: 84px;
+      background: rgba(13, 17, 23, 0.94);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(188, 140, 255, 0.4);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+      z-index: 20;
+    }
+    .lt-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .lt-badge {
+      background: linear-gradient(135deg, #8957e5, #bc8cff);
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      box-shadow: 0 0 16px rgba(188, 140, 255, 0.4);
+    }
+    .lt-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f0f6fc;
+      margin-bottom: 2px;
+    }
+    .lt-subtitle {
+      font-size: 14px;
+      color: #8b949e;
+    }
+    .lt-pill {
+      background: rgba(35, 134, 54, 0.2);
+      border: 1px solid #238636;
+      color: #3fb950;
+      padding: 8px 18px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    /* Interactive DOM Cursor */
+    .dom-cursor {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      pointer-events: none;
+      z-index: 100;
+      transform: translate(-2px, -2px);
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+    }
+    .click-ripple {
+      position: absolute;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 2px solid #579dff;
+      background: rgba(87, 157, 255, 0.35);
+      transform: translate(-24px, -24px) scale(0);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 99;
+      transition: transform 0.35s ease-out, opacity 0.35s ease-out;
+    }
+  </style>
+</head>
+<body>
+  <!-- Jira Top Navigation -->
+  <header class="jira-top-nav">
+    <div class="jira-nav-left">
+      <div class="jira-logo-group">
+        <svg height="22" width="22" viewBox="0 0 24 24" fill="#0052cc"><path d="M11.53 2c0 2.4 1.97 4.35 4.35 4.35h1.78v1.74c0 2.4 1.97 4.35 4.35 4.35V2h-10.48zm-4.75 4.75c0 2.4 1.97 4.35 4.35 4.35h1.78v1.74c0 2.4 1.97 4.35 4.35 4.35V6.75H6.78zM2 11.53c0 2.4 1.97 4.35 4.35 4.35h1.78v1.74c0 2.4 1.97 4.35 4.35 4.35V11.53H2z"/></svg>
+        <span>Jira Cloud</span>
+      </div>
+      <div class="jira-nav-links">
+        <div class="jira-nav-item active">Projects</div>
+        <div class="jira-nav-item">Filters</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Underlying Visible Command Center (Never pitch-black!) -->
+  <div class="underlying-content">
+    <aside class="jira-sidebar"></aside>
+    <main class="forge-main-bg">
+      <div class="dummy-card-row">
+        <div class="dummy-card"></div>
+        <div class="dummy-card"></div>
+        <div class="dummy-card"></div>
+      </div>
+      <div class="dummy-table"></div>
+    </main>
+  </div>
+
+  <!-- Frosted Dimmed Backdrop -->
+  <div class="backdrop-dim"></div>
+
+  <!-- Modal Dialog -->
+  <div class="modal-container" id="triage-modal">
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <span class="sparkle-icon" id="sparkle-icon">✨</span>
+        <span class="modal-title">Gemini AI Triage: PR #1</span>
+      </div>
+      <div class="gemini-pill">
+        <span>⚡ Google Gemini 3.8 Flash (Reasoning)</span>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <!-- Title Input with Focus Glow -->
+      <div class="form-group">
+        <label class="form-label">Suggested Jira Ticket Summary</label>
+        <div class="text-input" id="title-field">
+          Optimize authentication session cache and connection pool lifecycle
+        </div>
+      </div>
+
+      <!-- Selectors Row -->
+      <div class="row-selectors">
+        <div class="form-group">
+          <label class="form-label">Issue Type</label>
+          <div class="btn-group">
+            <div class="pill-opt" id="pill-task">✓ Task</div>
+            <div class="pill-opt" id="pill-bug">Bug</div>
+            <div class="pill-opt" id="pill-story">Story</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Fibonacci Story Points</label>
+          <div class="btn-group">
+            <div class="point-opt" id="pt-1">1</div>
+            <div class="point-opt" id="pt-2">2</div>
+            <div class="point-opt" id="pt-3">3</div>
+            <div class="point-opt" id="pt-5">5</div>
+            <div class="point-opt" id="pt-8">8</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Architectural Rationale Card -->
+      <div class="rationale-card" id="rationale-card">
+        <div class="rationale-icon">🧠</div>
+        <div class="rationale-content">
+          <div class="rationale-title">Gemini Architectural Analysis:</div>
+          PR introduces background TTL eviction worker and mutex locking around auth session cache. Modifies sensitive session lifecycle without prior tracking. Recommended 3 Fibonacci story points based on database pool concurrency risk.
+        </div>
+      </div>
+
+      <!-- Duplicate Check Alert -->
+      <div class="alert-success" id="dup-alert">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="#3fb950"><path d="M8 16A8 8 0 1 1 8 0a8 8 0 0 1 0 16Zm3.78-9.72a.751.751 0 0 0-.018-1.042.751.751 0 0 0-1.042-.018L6.75 9.19 5.28 7.72a.751.751 0 0 0-1.042.018.751.751 0 0 0-.018 1.042l2 2a.75.75 0 0 0 1.06 0Z"/></svg>
+        <span>Duplicate Check Passed: Scanned active GHOST sprint backlog &bull; 0 conflicting tickets found.</span>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="modal-footer">
+      <button class="btn-cancel">Cancel</button>
+      <button class="btn-create" id="btn-reconcile">
+        <span>⚡ Create Jira Issue & Link PR</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Lower-Third Overlay -->
+  <footer class="lower-third">
+    <div class="lt-left">
+      <div class="lt-badge">Context-Aware AI Triage</div>
+      <div>
+        <div class="lt-title">Google Gemini 3.8 Flash Reasoning</div>
+        <div class="lt-subtitle">Synthesizes git diffs against live backlog &bull; Automated Fibonacci point estimation</div>
+      </div>
+    </div>
+    <div class="lt-pill">Zero Duplicate Conflicts Verified</div>
+  </footer>
+
+  <!-- Cursor & Ripple -->
+  <div id="click-ripple" class="click-ripple"></div>
+  <svg id="cursor" class="dom-cursor" viewBox="0 0 24 24">
+    <path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87c.45 0 .67-.54.35-.85L5.85 2.85a.5.5 0 0 0-.35.36z" fill="#ffffff" stroke="#1d2125" stroke-width="1.5" stroke-linejoin="round"/>
+  </svg>
+
+  <script>
+    function easeInOutCubic(x) {
+      return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    }
+
+    window.renderAt = function(t) {
+      const modal = document.getElementById('triage-modal');
+      const titleField = document.getElementById('title-field');
+      const pillTask = document.getElementById('pill-task');
+      const pt3 = document.getElementById('pt-3');
+      const rationaleCard = document.getElementById('rationale-card');
+      const dupAlert = document.getElementById('dup-alert');
+      const btnReconcile = document.getElementById('btn-reconcile');
+      const cursor = document.getElementById('cursor');
+      const ripple = document.getElementById('click-ripple');
+
+      // 1. Modal slides in at t = 0.3s
+      modal.classList.toggle('visible', t >= 0.3);
+
+      // 2. Title field focus glow at t >= 2.0s
+      titleField.classList.toggle('focused', t >= 2.0);
+
+      // 3. Task active at t >= 6.5s
+      pillTask.classList.toggle('active', t >= 6.5);
+
+      // 4. 3 Points active at t >= 9.0s
+      pt3.classList.toggle('active', t >= 9.0);
+
+      // 5. Rationale card reveals at t >= 11.0s
+      rationaleCard.classList.toggle('visible', t >= 11.0);
+
+      // 6. Duplicate check alert reveals at t >= 12.5s
+      dupAlert.classList.toggle('visible', t >= 12.5);
+
+      // 7. Cursor Choreography:
+      // t: 0 - 5.0s -> cursor moves to Task pill (620, 460)
+      // t: 5.0 - 7.0s -> clicks Task pill at t=6.5s
+      // t: 7.0 - 9.0s -> moves to 3 pts button (1140, 460) and clicks at t=9.0s
+      // t: 9.0 - 13.5s -> traces rationale card & duplicate alert (960, 580)
+      // t: 13.5 - 15.5s -> glides down to "⚡ Create Jira Issue & Link PR" (1280, 720)
+      let cx = 960, cy = 360;
+      if (t < 5.0) {
+        const p = easeInOutCubic(Math.min(t / 5.0, 1));
+        cx = 960 + (620 - 960) * p;
+        cy = 360 + (460 - 360) * p;
+      } else if (t >= 5.0 && t < 7.0) {
+        cx = 620; cy = 460;
+      } else if (t >= 7.0 && t < 9.0) {
+        const p = easeInOutCubic((t - 7.0) / 2.0);
+        cx = 620 + (1140 - 620) * p;
+        cy = 460;
+      } else if (t >= 9.0 && t < 13.5) {
+        const p = easeInOutCubic(Math.min((t - 9.0) / 3.0, 1));
+        cx = 1140 + (960 - 1140) * p;
+        cy = 460 + (580 - 460) * p;
+      } else if (t >= 13.5 && t < 15.5) {
+        const p = easeInOutCubic((t - 13.5) / 2.0);
+        cx = 960 + (1280 - 960) * p;
+        cy = 580 + (720 - 580) * p;
+      } else {
+        cx = 1280; cy = 720;
+      }
+
+      // Hover on Create button
+      btnReconcile.classList.toggle('hovered', t >= 14.8);
+
+      // Clicks:
+      // Click Task @ t=6.5s
+      if (t >= 6.5 && t < 6.8) {
+        ripple.style.left = '620px';
+        ripple.style.top = '460px';
+        ripple.style.transform = 'translate(-24px, -24px) scale(1.5)';
+        ripple.style.opacity = '1';
+      }
+      // Click 3 pts @ t=9.0s
+      else if (t >= 9.0 && t < 9.3) {
+        ripple.style.left = '1140px';
+        ripple.style.top = '460px';
+        ripple.style.transform = 'translate(-24px, -24px) scale(1.5)';
+        ripple.style.opacity = '1';
+      }
+      // Click Create button @ t=15.5s
+      else if (t >= 15.5) {
+        btnReconcile.classList.add('active-click');
+        ripple.style.left = '1280px';
+        ripple.style.top = '720px';
+        ripple.style.transform = 'translate(-24px, -24px) scale(1.6)';
+        ripple.style.opacity = '1';
+      } else {
+        btnReconcile.classList.remove('active-click');
+        ripple.style.opacity = '0';
+        ripple.style.transform = 'translate(-24px, -24px) scale(0)';
+      }
+
+      cursor.style.left = cx + 'px';
+      cursor.style.top = cy + 'px';
+    };
+
+    let startTime = null;
+    function autoLoop(now) {
+      if (!startTime) startTime = now;
+      const t = (now - startTime) / 1000;
+      window.renderAt(t % 16.0);
+      requestAnimationFrame(autoLoop);
+    }
+    requestAnimationFrame(autoLoop);
+  </script>
+</body>
+</html>

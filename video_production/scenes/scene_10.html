@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scene 10 - Hero Outro & Call to Action</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 1920px;
+      height: 1080px;
+      background: #090d16;
+      color: #f0f6fc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Ambient Hero Glows */
+    .glow-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 800px;
+      height: 800px;
+      background: radial-gradient(circle, rgba(88, 166, 255, 0.18) 0%, rgba(188, 140, 255, 0.08) 50%, transparent 70%);
+      pointer-events: none;
+    }
+    .grid-pattern {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+    }
+
+    /* Phase 1: Live Kanban Board Zoomout (0 - 2.8s) */
+    .kanban-view {
+      position: absolute;
+      inset: 0;
+      padding: 40px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      background: #1d2125;
+      z-index: 2;
+      transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+    }
+    .kb-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .kb-title {
+      font-size: 26px;
+      font-weight: 700;
+      color: #f0f6fc;
+    }
+    .recaptured-badge {
+      background: rgba(35, 134, 54, 0.2);
+      border: 1px solid #238636;
+      color: #3fb950;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .kb-columns {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      flex: 1;
+    }
+    .kb-col {
+      background: #161a1d;
+      border: 1px solid #2c333a;
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .kb-col-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #8b949e;
+      text-transform: uppercase;
+    }
+    .ghost-card {
+      background: #22272b;
+      border: 2px solid #579dff;
+      border-radius: 8px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 0 20px rgba(87, 157, 255, 0.3);
+      transform: translateY(-20px);
+      opacity: 0;
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s;
+    }
+    .ghost-card.slid-in {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* Phase 2: Hero Outro Card (2.8s - End) */
+    .hero-container {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      opacity: 0;
+      transform: scale(0.95);
+      transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+    }
+    .hero-container.visible {
+      opacity: 1;
+      transform: scale(1);
+    }
+    .hero-card {
+      width: 980px;
+      background: rgba(22, 27, 34, 0.92);
+      backdrop-filter: blur(24px);
+      border: 1px solid rgba(88, 166, 255, 0.35);
+      border-radius: 24px;
+      padding: 56px 60px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      box-shadow: 0 32px 80px rgba(0, 0, 0, 0.8), 0 0 60px rgba(88, 166, 255, 0.2);
+    }
+
+    /* Logo Icon */
+    .hero-logo-box {
+      width: 88px;
+      height: 88px;
+      background: linear-gradient(135deg, #0c66e4, #8957e5);
+      border-radius: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      box-shadow: 0 0 40px rgba(12, 102, 228, 0.6);
+      margin-bottom: 20px;
+    }
+
+    /* Title & Tagline */
+    .hero-title {
+      font-size: 52px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      color: #ffffff;
+      margin-bottom: 10px;
+      background: linear-gradient(180deg, #ffffff 0%, #c9d1d9 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-tagline {
+      font-size: 22px;
+      font-weight: 500;
+      color: #79c0ff;
+      margin-bottom: 16px;
+    }
+    .hero-submission-tag {
+      background: rgba(188, 140, 255, 0.15);
+      border: 1px solid rgba(188, 140, 255, 0.4);
+      color: #d2a8ff;
+      padding: 6px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 30px;
+    }
+
+    /* Clean Fixed Flex Link Boxes */
+    .links-grid {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      width: 100%;
+      margin-bottom: 30px;
+    }
+    .link-box {
+      flex: 1;
+      max-width: 400px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #f0f6fc;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+    .link-icon { font-size: 18px; }
+    .link-url { color: #58a6ff; font-family: monospace; font-weight: 700; }
+
+    /* Feature Pills */
+    .badges-row {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+    .feature-badge {
+      background: rgba(12, 102, 228, 0.2);
+      border: 1px solid #0c66e4;
+      color: #579dff;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    /* Full-screen Fade to Black */
+    .fade-black {
+      position: absolute;
+      inset: 0;
+      background: black;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 999;
+      transition: opacity 0.8s ease-in;
+    }
+    .fade-black.active {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="glow-center"></div>
+  <div class="grid-pattern"></div>
+
+  <!-- Phase 1: Live Kanban Board Zoomout -->
+  <div class="kanban-view" id="kanban-view">
+    <div class="kb-header-row">
+      <div class="kb-title">Active Sprint 1 Kanban Board (GHOST Project)</div>
+      <div class="recaptured-badge">
+        <span>✔</span>
+        <span>Sprint Velocity Restored: 3 Story Points Recaptured!</span>
+      </div>
+    </div>
+
+    <div class="kb-columns">
+      <div class="kb-col">
+        <div class="kb-col-title">To Do (2)</div>
+        <div style="background:#22272b;border:1px solid #383f47;padding:12px;border-radius:8px;font-size:13px;">GHOST-2 &bull; Session mutex locks (2 pts)</div>
+        <div style="background:#22272b;border:1px solid #383f47;padding:12px;border-radius:8px;font-size:13px;">GHOST-3 &bull; Redis configuration (1 pt)</div>
+      </div>
+
+      <div class="kb-col">
+        <div class="kb-col-title">In Progress (2)</div>
+        <div class="ghost-card" id="card-ghost-1">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="color:#579dff;font-weight:700;font-size:13px;">GHOST-1</span>
+            <span style="background:#0c66e4;color:white;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700;">Task &bull; 3 pts</span>
+          </div>
+          <div style="font-size:13.5px;font-weight:600;color:#f0f6fc;">Optimize authentication session cache and pool lifecycle</div>
+          <div style="font-size:11px;color:#8b949e;display:flex;align-items:center;gap:6px;">
+            <span>🐙 PR #1 Linked</span> &bull; <span>Jay Kestrel</span>
+          </div>
+        </div>
+        <div style="background:#22272b;border:1px solid #383f47;padding:12px;border-radius:8px;font-size:13px;">GHOST-4 &bull; Telemetry alerts (3 pts)</div>
+      </div>
+
+      <div class="kb-col">
+        <div class="kb-col-title">In Review (1)</div>
+        <div style="background:#22272b;border:1px solid #383f47;padding:12px;border-radius:8px;font-size:13px;">GHOST-5 &bull; UI Kit 2 dark tokens (2 pts)</div>
+      </div>
+
+      <div class="kb-col">
+        <div class="kb-col-title">Done (4)</div>
+        <div style="background:#22272b;border:1px solid #383f47;padding:12px;border-radius:8px;font-size:13px;">GHOST-6 &bull; Serverless KVS setup (5 pts)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phase 2: Outro Hero Card -->
+  <div class="hero-container" id="hero-container">
+    <div class="hero-card">
+      <div class="hero-logo-box">👻</div>
+      <h1 class="hero-title">GhostGeist</h1>
+      <div class="hero-tagline">Reconcile Shadow Engineering Work with Confidence</div>
+      <div class="hero-submission-tag">Atlassian Codegeist 2026 Submission</div>
+
+      <div class="links-grid">
+        <div class="link-box">
+          <span class="link-icon">🌐</span>
+          <span>Live Demo:</span>
+          <span class="link-url">ghostgeist.atlassian.net</span>
+        </div>
+        <div class="link-box">
+          <span class="link-icon">💻</span>
+          <span>GitHub:</span>
+          <span class="link-url">github.com/jay-kestrel/ghostgeist</span>
+        </div>
+      </div>
+
+      <div class="badges-row">
+        <div class="feature-badge">100% Forge UI Kit 2</div>
+        <div class="feature-badge">Atlassian MCP Gateway</div>
+        <div class="feature-badge">Rovo Autonomous Agent</div>
+        <div class="feature-badge">Google Gemini 3.8 Flash</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fade to Black -->
+  <div class="fade-black" id="fade-black"></div>
+
+  <script>
+    window.renderAt = function(t) {
+      const kanban = document.getElementById('kanban-view');
+      const card = document.getElementById('card-ghost-1');
+      const hero = document.getElementById('hero-container');
+      const fade = document.getElementById('fade-black');
+
+      // 1. GHOST-1 card slides in at t >= 0.5s
+      card.classList.toggle('slid-in', t >= 0.5);
+
+      // 2. Transition from Kanban to Hero Outro Card at t >= 2.8s
+      if (t >= 2.8) {
+        kanban.style.opacity = '0';
+        hero.classList.add('visible');
+      } else {
+        kanban.style.opacity = '1';
+        hero.classList.remove('visible');
+      }
+
+      // 3. Cinematic fade to black over the last 0.8s (t >= 7.68s)
+      fade.classList.toggle('active', t >= 7.68);
+    };
+
+    let startTime = null;
+    function autoLoop(now) {
+      if (!startTime) startTime = now;
+      const t = (now - startTime) / 1000;
+      window.renderAt(t % 8.48);
+      requestAnimationFrame(autoLoop);
+    }
+    requestAnimationFrame(autoLoop);
+  </script>
+</body>
+</html>

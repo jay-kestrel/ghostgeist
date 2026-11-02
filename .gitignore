@@ -4,11 +4,17 @@
 !.env.example
 notes.txt
 
-# Scraping & Temporary files
-*.html
+# Scraping & Root Temporary files
+/*.html
 *.log
 codegeist_*.txt
 project_gallery.html
+
+# Video Intermediates
+video_components/
+video_production/clips/
+video_production/assets/
+video_production/concat_clips.txt
 
 # Node / Dependencies
 node_modules/
@@ -18,3 +24,4 @@ build/
 
 # macOS
 .DS_Store
+

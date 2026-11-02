@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scene 07 - Cursor IDE / Claude Desktop MCP Integration</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 1920px;
+      height: 1080px;
+      background: #181818;
+      color: #cccccc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Top IDE Window Title Bar */
+    .ide-titlebar {
+      height: 44px;
+      background: #1f1f1f;
+      border-bottom: 1px solid #2b2b2b;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 10;
+    }
+    .window-controls {
+      display: flex;
+      gap: 8px;
+    }
+    .win-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    .dot-red { background: #ff5f56; }
+    .dot-yellow { background: #ffbd2e; }
+    .dot-green { background: #27c93f; }
+    .ide-title {
+      font-size: 13px;
+      color: #999999;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ide-badge {
+      background: #2b2b2b;
+      border: 1px solid #3c3c3c;
+      color: #579dff;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    /* Main IDE Workspace Split */
+    .ide-workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      padding: 0 0 140px 0;
+      overflow: hidden;
+    }
+
+    /* Left: Code Editor (skill.md) */
+    .editor-pane {
+      background: #1e1e1e;
+      border-right: 1px solid #2b2b2b;
+      display: flex;
+      flex-direction: column;
+    }
+    .tab-bar {
+      height: 38px;
+      background: #181818;
+      display: flex;
+      border-bottom: 1px solid #2b2b2b;
+    }
+    .tab-item {
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #999;
+      border-right: 1px solid #2b2b2b;
+      background: #181818;
+    }
+    .tab-item.active {
+      background: #1e1e1e;
+      color: #ffffff;
+      border-top: 2px solid #007acc;
+    }
+    .code-container {
+      flex: 1;
+      display: flex;
+      padding: 16px 0;
+      overflow: hidden;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13.5px;
+      line-height: 1.65;
+    }
+    .line-numbers {
+      width: 44px;
+      text-align: right;
+      padding-right: 14px;
+      color: #5a5a5a;
+      user-select: none;
+    }
+    .code-lines {
+      flex: 1;
+      color: #d4d4d4;
+      white-space: pre;
+    }
+    .c-comment { color: #6a9955; }
+    .c-key { color: #9cdcfe; font-weight: 600; }
+    .c-str { color: #ce9178; }
+    .c-kw { color: #569cd6; font-weight: 600; }
+    .c-pill { background: rgba(0, 122, 204, 0.2); border: 1px solid #007acc; color: #79c0ff; padding: 1px 6px; border-radius: 4px; font-size: 11px; }
+
+    /* Right: Cursor AI Agent Chat */
+    .chat-pane {
+      background: #252526;
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-header {
+      height: 38px;
+      background: #2d2d2d;
+      border-bottom: 1px solid #3c3c3c;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 600;
+      color: #e0e0e0;
+    }
+    .chat-agent-pill {
+      background: rgba(12, 102, 228, 0.25);
+      border: 1px solid #007acc;
+      color: #79c0ff;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .chat-history {
+      flex: 1;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+    }
+    .msg-user {
+      background: #2b2d30;
+      border: 1px solid #3c3f41;
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 14px;
+      color: #ffffff;
+      align-self: flex-end;
+      max-width: 90%;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.3s, transform 0.3s;
+    }
+    .msg-user.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .msg-agent {
+      background: #1e1e1e;
+      border: 1px solid #3c3c3c;
+      border-radius: 10px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      font-size: 13px;
+      color: #cccccc;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.3s, transform 0.3s;
+    }
+    .msg-agent.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .agent-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: monospace;
+      color: #79c0ff;
+      background: #181818;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border-left: 3px solid #007acc;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .agent-step.visible {
+      opacity: 1;
+    }
+    .spinner-sm {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(121, 192, 255, 0.3);
+      border-top-color: #79c0ff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    .triage-chat-card {
+      background: #252526;
+      border: 1px solid #007acc;
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 4px 16px rgba(0, 122, 204, 0.25);
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+    }
+    .triage-chat-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+    .card-meta {
+      display: flex;
+      gap: 10px;
+      font-size: 12px;
+      color: #8b949e;
+    }
+    .btn-reconcile-ide {
+      background: #007acc;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      align-self: flex-start;
+      margin-top: 4px;
+      box-shadow: 0 0 12px rgba(0, 122, 204, 0.4);
+    }
+
+    /* Fixed 1:1 Lower-Third Overlay */
+    .lower-third {
+      position: absolute;
+      bottom: 28px;
+      left: 60px;
+      right: 60px;
+      height: 84px;
+      background: rgba(13, 17, 23, 0.94);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(87, 157, 255, 0.4);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+      z-index: 20;
+    }
+    .lt-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .lt-badge {
+      background: linear-gradient(135deg, #007acc, #0052cc);
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      box-shadow: 0 0 16px rgba(0, 122, 204, 0.4);
+    }
+    .lt-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f0f6fc;
+      margin-bottom: 2px;
+    }
+    .lt-subtitle {
+      font-size: 14px;
+      color: #8b949e;
+    }
+    .lt-pill {
+      background: rgba(0, 122, 204, 0.2);
+      border: 1px solid #007acc;
+      color: #79c0ff;
+      padding: 8px 18px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    /* Interactive DOM Cursor */
+    .dom-cursor {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      pointer-events: none;
+      z-index: 100;
+      transform: translate(-2px, -2px);
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+    }
+  </style>
+</head>
+<body>
+  <!-- Top IDE Titlebar -->
+  <header class="ide-titlebar">
+    <div class="window-controls">
+      <div class="win-dot dot-red"></div>
+      <div class="win-dot dot-yellow"></div>
+      <div class="win-dot dot-green"></div>
+    </div>
+    <div class="ide-title">
+      <span>Cursor IDE &bull; ghostgeist &bull; skill.md</span>
+      <span class="ide-badge">Atlassian MCP Active</span>
+    </div>
+    <div style="font-size:12px;color:#888;">gateway: mcp.atlassian.com</div>
+  </header>
+
+  <!-- Workspace Split -->
+  <main class="ide-workspace">
+    <!-- Left: Code Editor (Proper Syntax Highlighted Multi-line) -->
+    <div class="editor-pane">
+      <div class="tab-bar">
+        <div class="tab-item active">
+          <span>📄 skill.md (GhostGeist MCP)</span>
+        </div>
+        <div class="tab-item">
+          <span>⚙️ manifest.yml</span>
+        </div>
+      </div>
+      <div class="code-container">
+        <div class="line-numbers">
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+        </div>
+        <div class="code-lines"><span class="c-comment"># GhostGeist Atlassian Model Context Protocol (MCP) Definition</span>
+<span class="c-key">name</span>: <span class="c-str">"ghostgeist"</span>
+<span class="c-key">version</span>: <span class="c-str">"1.0.0"</span>
+<span class="c-key">gateway</span>: <span class="c-str">"https://mcp.atlassian.com/gateway"</span>
+
+<span class="c-key">rovo:mcp</span>:
+  <span class="c-key">tools</span>:
+    - <span class="c-key">name</span>: <span class="c-str">"get-untracked-prs"</span>
+      <span class="c-key">description</span>: <span class="c-str">"Audit repo for PRs missing Jira keys"</span>
+      <span class="c-key">action</span>: <span class="c-str">"action/getUntrackedPRs"</span>
+
+    - <span class="c-key">name</span>: <span class="c-str">"triage-pr-gemini"</span>
+      <span class="c-key">description</span>: <span class="c-str">"Synthesize diff via Google Gemini 3.8 Flash"</span>
+      <span class="c-key">action</span>: <span class="c-str">"action/triagePRGemini"</span>
+
+    - <span class="c-key">name</span>: <span class="c-str">"create-jira-ticket-from-pr"</span>
+      <span class="c-key">description</span>: <span class="c-str">"Generate ADF issue with bi-directional remote link"</span>
+      <span class="c-key">action</span>: <span class="c-str">"action/createJiraTicket"</span></div>
+      </div>
+    </div>
+
+    <!-- Right: Cursor AI Chat -->
+    <div class="chat-pane">
+      <div class="chat-header">
+        <span>Cursor AI Assistant</span>
+        <span class="chat-agent-pill">Atlassian MCP Connected</span>
+      </div>
+      <div class="chat-history">
+        <div class="msg-user" id="msg-user">
+          Audit repo for untracked PRs and reconcile them.
+        </div>
+
+        <div class="msg-agent" id="msg-agent">
+          <div class="agent-step" id="step-1">
+            <div class="spinner-sm" id="spin-1"></div>
+            <span id="step-1-text">Calling MCP Tool: get-untracked-prs(repo: "jay-kestrel/ghostgeist")...</span>
+          </div>
+
+          <div class="agent-step" id="step-2">
+            <div class="spinner-sm" id="spin-2"></div>
+            <span id="step-2-text">Calling MCP Tool: triage-pr-gemini(prNumber: 1)...</span>
+          </div>
+
+          <div class="triage-chat-card" id="chat-card">
+            <div class="card-title">✨ Proposed Issue: GHOST-1</div>
+            <div style="color:#d4d4d4;font-size:13px;">Optimize authentication session cache and connection pool lifecycle</div>
+            <div class="card-meta">
+              <span style="color:#79c0ff;font-weight:700;">Task</span> &bull; 
+              <span style="color:#79c0ff;font-weight:700;">3 Story Points</span> &bull; 
+              <span>Branch: feat/optimize-auth-session-cache</span>
+            </div>
+            <button class="btn-reconcile-ide">Reconcile to Jira Sprint Backlog</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Lower-Third Overlay -->
+  <footer class="lower-third">
+    <div class="lt-left">
+      <div class="lt-badge">Bonus Prize 1: Best App with Atlassian MCP</div>
+      <div>
+        <div class="lt-title">Cursor IDE & Claude Desktop Integration</div>
+        <div class="lt-subtitle">Declared rovo:mcp module & open-source skill.md for local agentic workflows</div>
+      </div>
+    </div>
+    <div class="lt-pill">Zero Context Switching for Developers</div>
+  </footer>
+
+  <!-- Cursor -->
+  <svg id="cursor" class="dom-cursor" viewBox="0 0 24 24">
+    <path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87c.45 0 .67-.54.35-.85L5.85 2.85a.5.5 0 0 0-.35.36z" fill="#ffffff" stroke="#1d2125" stroke-width="1.5" stroke-linejoin="round"/>
+  </svg>
+
+  <script>
+    function easeInOutCubic(x) {
+      return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    }
+
+    window.renderAt = function(t) {
+      const msgUser = document.getElementById('msg-user');
+      const msgAgent = document.getElementById('msg-agent');
+      const step1 = document.getElementById('step-1');
+      const spin1 = document.getElementById('spin-1');
+      const step1Text = document.getElementById('step-1-text');
+      const step2 = document.getElementById('step-2');
+      const spin2 = document.getElementById('spin-2');
+      const step2Text = document.getElementById('step-2-text');
+      const chatCard = document.getElementById('chat-card');
+      const cursor = document.getElementById('cursor');
+
+      // 1. User message visible at t >= 0.4s
+      msgUser.classList.toggle('visible', t >= 0.4);
+
+      // 2. Agent responds at t >= 1.2s
+      msgAgent.classList.toggle('visible', t >= 1.2);
+
+      // 3. Step 1 (get-untracked-prs):
+      // Spinning from t: 1.5s to 3.5s
+      // Completed at t >= 3.5s
+      step1.classList.toggle('visible', t >= 1.5);
+      if (t >= 3.5) {
+        spin1.style.display = 'none';
+        step1Text.innerHTML = '✔ Found 1 Untracked PR: <strong>PR #1 (feat/optimize-auth-session-cache)</strong>';
+      } else {
+        spin1.style.display = 'block';
+        step1Text.innerText = 'Calling MCP Tool: get-untracked-prs(repo: "jay-kestrel/ghostgeist")...';
+      }
+
+      // 4. Step 2 (triage-pr-gemini):
+      // Starts at t >= 4.0s, spinning until t: 6.5s
+      step2.classList.toggle('visible', t >= 4.0);
+      if (t >= 6.5) {
+        spin2.style.display = 'none';
+        step2Text.innerHTML = '✔ Triaged with Gemini 3.8 Flash: <strong>Task &bull; 3 Story Points</strong>';
+      } else {
+        spin2.style.display = 'block';
+        step2Text.innerText = 'Calling MCP Tool: triage-pr-gemini(prNumber: 1)...';
+      }
+
+      // 5. Proposed card reveals at t >= 7.2s
+      chatCard.classList.toggle('visible', t >= 7.2);
+
+      // 6. Cursor movement:
+      // t: 0 - 3.5s -> traces editor YAML (400, 320)
+      // t: 3.5 - 7.0s -> glides across to Cursor AI assistant (1420, 350)
+      // t: 7.0 - 12.0s -> hovers over Reconcile button on triage card (1400, 520)
+      let cx = 400, cy = 320;
+      if (t < 3.5) {
+        cx = 400 + 30 * Math.sin(t * 2);
+        cy = 320 + 20 * Math.cos(t * 2);
+      } else if (t >= 3.5 && t < 7.0) {
+        const p = easeInOutCubic((t - 3.5) / 3.5);
+        cx = 400 + (1420 - 400) * p;
+        cy = 320 + (350 - 320) * p;
+      } else {
+        const p = easeInOutCubic(Math.min((t - 7.0) / 2.5, 1));
+        cx = 1420 + (1380 - 1420) * p;
+        cy = 350 + (520 - 350) * p;
+      }
+
+      cursor.style.left = cx + 'px';
+      cursor.style.top = cy + 'px';
+    };
+
+    let startTime = null;
+    function autoLoop(now) {
+      if (!startTime) startTime = now;
+      const t = (now - startTime) / 1000;
+      window.renderAt(t % 12.6);
+      requestAnimationFrame(autoLoop);
+    }
+    requestAnimationFrame(autoLoop);
+  </script>
+</body>
+</html>

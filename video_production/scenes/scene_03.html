@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scene 03 - Jira Cloud Forge UI Kit 2 Landing</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 1920px;
+      height: 1080px;
+      background: #1d2125;
+      color: #f0f6fc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Top Jira Cloud Global Navigation */
+    .jira-top-nav {
+      height: 56px;
+      background: #161a1d;
+      border-bottom: 1px solid #2c333a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 10;
+    }
+    .jira-nav-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .jira-logo-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: white;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .jira-nav-links {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 14px;
+      color: #c9d1d9;
+    }
+    .jira-nav-item {
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .jira-nav-item.active {
+      background: #22272b;
+      color: #579dff;
+      font-weight: 600;
+    }
+    .jira-search {
+      background: #22272b;
+      border: 1px solid #383f47;
+      border-radius: 6px;
+      padding: 6px 16px;
+      width: 320px;
+      color: #8b949e;
+      font-size: 13px;
+    }
+
+    /* Jira Workspace Layout */
+    .jira-workspace {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* Left Project Sidebar */
+    .jira-sidebar {
+      width: 280px;
+      background: #161a1d;
+      border-right: 1px solid #2c333a;
+      display: flex;
+      flex-direction: column;
+      padding: 24px 16px;
+    }
+    .project-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #2c333a;
+    }
+    .project-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #579dff, #bc8cff);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+    .project-meta {
+      display: flex;
+      flex-direction: column;
+    }
+    .project-name { font-size: 16px; font-weight: 700; color: #f0f6fc; }
+    .project-key { font-size: 12px; color: #8b949e; }
+
+    .sidebar-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .menu-item {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #8b949e;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: all 0.25s;
+    }
+    .menu-item.active-forge {
+      background: rgba(12, 102, 228, 0.2) !important;
+      border: 1px solid #0c66e4 !important;
+      color: #579dff !important;
+      font-weight: 700 !important;
+      box-shadow: 0 0 16px rgba(12, 102, 228, 0.3) !important;
+    }
+    .forge-badge {
+      background: #0c66e4;
+      color: white;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: auto;
+      text-transform: uppercase;
+    }
+
+    /* Main Content: Forge UI Kit 2 Page */
+    .forge-main {
+      flex: 1;
+      padding: 40px 60px 140px 60px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .skeleton-pane {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      opacity: 1;
+      transition: opacity 0.4s;
+    }
+    .skeleton-bar {
+      height: 36px;
+      background: #22272b;
+      border-radius: 8px;
+      animation: pulse 1.5s infinite;
+    }
+    .skeleton-card {
+      height: 180px;
+      background: #22272b;
+      border-radius: 12px;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 0.25; } }
+
+    .loaded-pane {
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+    }
+    .loaded-pane.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .forge-breadcrumbs {
+      font-size: 13px;
+      color: #8b949e;
+      margin-bottom: 14px;
+      display: flex;
+      gap: 8px;
+    }
+    .forge-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .forge-title-group h1 {
+      font-size: 32px;
+      font-weight: 700;
+      color: #f0f6fc;
+      margin-bottom: 6px;
+    }
+    .forge-title-group p {
+      font-size: 16px;
+      color: #8b949e;
+    }
+    .action-group {
+      display: flex;
+      gap: 12px;
+    }
+    .btn-primary {
+      background: #0c66e4;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 16px rgba(12, 102, 228, 0.4);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary.hovered {
+      background: #0052cc;
+      box-shadow: 0 0 24px rgba(87, 157, 255, 0.7);
+      transform: scale(1.03);
+    }
+    .btn-secondary {
+      background: #22272b;
+      color: #c9d1d9;
+      border: 1px solid #383f47;
+      border-radius: 8px;
+      padding: 12px 20px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    /* Zero-Config Judge Banner */
+    .zero-config-banner {
+      background: rgba(35, 134, 54, 0.15);
+      border: 1px solid #238636;
+      border-radius: 12px;
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+    }
+    .banner-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: #3fb950;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .banner-badge {
+      background: #238636;
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+
+    /* Initial Ready Card */
+    .ready-card {
+      background: #22272b;
+      border: 1px solid #383f47;
+      border-radius: 14px;
+      padding: 48px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+    .ready-icon {
+      width: 64px;
+      height: 64px;
+      background: rgba(12, 102, 228, 0.15);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      color: #579dff;
+    }
+    .ready-title { font-size: 22px; font-weight: 700; color: #f0f6fc; }
+    .ready-desc { font-size: 15px; color: #8b949e; max-width: 540px; line-height: 1.5; }
+
+    /* Fixed 1:1 Lower-Third Overlay */
+    .lower-third {
+      position: absolute;
+      bottom: 28px;
+      left: 60px;
+      right: 60px;
+      height: 84px;
+      background: rgba(13, 17, 23, 0.94);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(87, 157, 255, 0.4);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+      z-index: 20;
+    }
+    .lt-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .lt-badge {
+      background: linear-gradient(135deg, #0c66e4, #0052cc);
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      box-shadow: 0 0 16px rgba(12, 102, 228, 0.4);
+    }
+    .lt-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f0f6fc;
+      margin-bottom: 2px;
+    }
+    .lt-subtitle {
+      font-size: 14px;
+      color: #8b949e;
+    }
+    .lt-pill {
+      background: rgba(87, 157, 255, 0.15);
+      border: 1px solid rgba(87, 157, 255, 0.4);
+      color: #579dff;
+      padding: 8px 18px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    /* Interactive DOM Cursor */
+    .dom-cursor {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      pointer-events: none;
+      z-index: 100;
+      transform: translate(-2px, -2px);
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+    }
+    .click-ripple {
+      position: absolute;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 2px solid #579dff;
+      background: rgba(87, 157, 255, 0.35);
+      transform: translate(-24px, -24px) scale(0);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 99;
+      transition: transform 0.35s ease-out, opacity 0.35s ease-out;
+    }
+  </style>
+</head>
+<body>
+  <!-- Jira Top Navigation -->
+  <header class="jira-top-nav">
+    <div class="jira-nav-left">
+      <div class="jira-logo-group">
+        <svg height="22" width="22" viewBox="0 0 24 24" fill="#0052cc"><path d="M11.53 2c0 2.4 1.97 4.35 4.35 4.35h1.78v1.74c0 2.4 1.97 4.35 4.35 4.35V2h-10.48zm-4.75 4.75c0 2.4 1.97 4.35 4.35 4.35h1.78v1.74c0 2.4 1.97 4.35 4.35 4.35V6.75H6.78zM2 11.53c0 2.4 1.97 4.35 4.35 4.35h1.78v1.74c0 2.4 1.97 4.35 4.35 4.35V11.53H2z"/></svg>
+        <span>Jira Cloud</span>
+      </div>
+      <div class="jira-nav-links">
+        <div class="jira-nav-item active">Projects</div>
+        <div class="jira-nav-item">Filters</div>
+        <div class="jira-nav-item">Dashboards</div>
+        <div class="jira-nav-item">Apps</div>
+      </div>
+    </div>
+    <div class="jira-search">Search Jira (GHOST)...</div>
+  </header>
+
+  <!-- Jira Workspace Layout -->
+  <div class="jira-workspace">
+    <!-- Left Sidebar -->
+    <aside class="jira-sidebar">
+      <div class="project-header">
+        <div class="project-icon">👻</div>
+        <div class="project-meta">
+          <div class="project-name">GhostGeist</div>
+          <div class="project-key">GHOST project</div>
+        </div>
+      </div>
+
+      <div class="sidebar-menu">
+        <div class="menu-item" id="nav-summary">
+          <span>📋 Summary</span>
+        </div>
+        <div class="menu-item" id="nav-board">
+          <span>📊 Kanban Board</span>
+        </div>
+        <div class="menu-item" id="nav-backlog">
+          <span>📦 Backlog</span>
+        </div>
+        <div class="menu-item" id="nav-ghostgeist">
+          <span>⚡ GhostGeist Triage</span>
+          <span class="forge-badge">Forge UI</span>
+        </div>
+        <div class="menu-item" id="nav-settings">
+          <span>⚙️ Project Settings</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Forge UI Kit 2 View -->
+    <main class="forge-main">
+      <div id="skeleton-pane" class="skeleton-pane">
+        <div class="skeleton-bar" style="width: 40%;"></div>
+        <div class="skeleton-bar" style="width: 70%;"></div>
+        <div class="skeleton-card"></div>
+      </div>
+
+      <div id="loaded-pane" class="loaded-pane">
+        <div class="forge-breadcrumbs">
+          <span>Projects</span> &bull; <span>GhostGeist</span> &bull; <span>Apps</span> &bull; <span style="color:#f0f6fc;">GhostGeist Triage</span>
+        </div>
+
+        <div class="forge-header-row">
+          <div class="forge-title-group">
+            <h1>GhostGeist Triage Command Center</h1>
+            <p>Proactively audit GitHub repositories for untracked pull requests & reconcile directly into Jira.</p>
+          </div>
+          <div class="action-group">
+            <button class="btn-primary" id="btn-scan">
+              <span>⚡ Scan PRs</span>
+            </button>
+            <button class="btn-secondary">⚙️ Settings</button>
+          </div>
+        </div>
+
+        <div class="zero-config-banner">
+          <div class="banner-left">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="#3fb950"><path d="M8 16A8 8 0 1 1 8 0a8 8 0 0 1 0 16Zm3.78-9.72a.751.751 0 0 0-.018-1.042.751.751 0 0 0-1.042-.018L6.75 9.19 5.28 7.72a.751.751 0 0 0-1.042.018.751.751 0 0 0-.018 1.042l2 2a.75.75 0 0 0 1.06 0Z"/></svg>
+            <span>Zero-Config Judge Mode Active &bull; Target Repo: <strong>jay-kestrel/ghostgeist</strong></span>
+          </div>
+          <div class="banner-badge">60-Second Zero-Config Judge Testing</div>
+        </div>
+
+        <div class="ready-card">
+          <div class="ready-icon">🔍</div>
+          <div class="ready-title">Ready to Scan Repository for Shadow Work</div>
+          <div class="ready-desc">Click "Scan PRs" to inspect open pull requests, detect branches missing Jira tickets, and synthesize context-aware issue estimates using Google Gemini 3.8 Flash.</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Lower-Third Overlay -->
+  <footer class="lower-third">
+    <div class="lt-left">
+      <div class="lt-badge">100% Native Forge UI Kit 2</div>
+      <div>
+        <div class="lt-title">Design & Architecture</div>
+        <div class="lt-subtitle">Zero iframe lag &bull; Native Jira theme compliance &bull; Serverless Atlassian Forge</div>
+      </div>
+    </div>
+    <div class="lt-pill">Zero Mandatory Credential Setup</div>
+  </footer>
+
+  <!-- Cursor & Ripple -->
+  <div id="click-ripple" class="click-ripple"></div>
+  <svg id="cursor" class="dom-cursor" viewBox="0 0 24 24">
+    <path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87c.45 0 .67-.54.35-.85L5.85 2.85a.5.5 0 0 0-.35.36z" fill="#ffffff" stroke="#1d2125" stroke-width="1.5" stroke-linejoin="round"/>
+  </svg>
+
+  <script>
+    function easeInOutCubic(x) {
+      return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    }
+
+    window.renderAt = function(t) {
+      const navItem = document.getElementById('nav-ghostgeist');
+      const skeleton = document.getElementById('skeleton-pane');
+      const loaded = document.getElementById('loaded-pane');
+      const btnScan = document.getElementById('btn-scan');
+      const cursor = document.getElementById('cursor');
+      const ripple = document.getElementById('click-ripple');
+
+      // 1. Initial State: cursor starts at (800, 480)
+      let cx = 800, cy = 480;
+
+      // 2. Cursor moves to "⚡ GhostGeist Triage" (140, 270) from t: 0.5s to 2.5s
+      if (t < 0.5) {
+        cx = 800; cy = 480;
+      } else if (t >= 0.5 && t < 2.5) {
+        const p = easeInOutCubic((t - 0.5) / 2.0);
+        cx = 800 + (140 - 800) * p;
+        cy = 480 + (270 - 480) * p;
+      } else if (t >= 2.5 && t < 7.0) {
+        cx = 140; cy = 270;
+      } else if (t >= 7.0 && t <= 11.0) {
+        // Glides over to Scan PRs button (1380, 140)
+        const p = easeInOutCubic((t - 7.0) / 4.0);
+        cx = 140 + (1380 - 140) * p;
+        cy = 270 + (140 - 270) * p;
+      } else {
+        cx = 1380; cy = 140;
+      }
+
+      // 3. Click at t = 2.5s
+      const isClicked = (t >= 2.5);
+      navItem.classList.toggle('active-forge', isClicked);
+
+      if (t >= 2.5 && t <= 2.9) {
+        ripple.style.left = '140px';
+        ripple.style.top = '270px';
+        ripple.style.transform = 'translate(-24px, -24px) scale(1.6)';
+        ripple.style.opacity = '1';
+      } else {
+        ripple.style.opacity = '0';
+        ripple.style.transform = 'translate(-24px, -24px) scale(0)';
+      }
+
+      // 4. Main pane skeleton transitions to loaded Command Center at t = 2.8s
+      if (t >= 2.8) {
+        skeleton.style.display = 'none';
+        loaded.classList.add('visible');
+      } else {
+        skeleton.style.display = 'flex';
+        loaded.classList.remove('visible');
+      }
+
+      // 5. Hover state on Scan PRs button near end of clip
+      btnScan.classList.toggle('hovered', t >= 10.5);
+
+      cursor.style.left = cx + 'px';
+      cursor.style.top = cy + 'px';
+    };
+
+    let startTime = null;
+    function autoLoop(now) {
+      if (!startTime) startTime = now;
+      const t = (now - startTime) / 1000;
+      window.renderAt(t % 12.2);
+      requestAnimationFrame(autoLoop);
+    }
+    requestAnimationFrame(autoLoop);
+  </script>
+</body>
+</html>
