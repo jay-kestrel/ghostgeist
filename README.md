@@ -16,7 +16,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Unit Tests](https://img.shields.io/badge/Tests-29%2F29_Passing-brightgreen?style=for-the-badge)](#testing--verification)
 
-[Live Deployment](https://ghostgeist.atlassian.net/jira/software/projects/GHOST/apps/8f916e76-19dc-490d-8440-d6ff0cf9122d/00436796-5548-469e-b60e-93b709397200) • [Demo Video (1080p)](ghostgeist_demo_master.mp4) • [Video Script](DEMO_VIDEO_SCRIPT.md) • [Devpost Guide](DEVPOST_SUBMISSION.md) • [GitHub Repository](https://github.com/jay-kestrel/ghostgeist) • [MCP Skill](skills/ghostgeist/skill.md)
+[Judge Walkthrough](JUDGE_WALKTHROUGH.md) • [Live Deployment](https://ghostgeist.atlassian.net/jira/software/projects/GHOST/apps/8f916e76-19dc-490d-8440-d6ff0cf9122d/00436796-5548-469e-b60e-93b709397200) • [Demo Video (1080p)](ghostgeist_demo_master.mp4) • [Devpost Guide](DEVPOST_SUBMISSION.md) • [GitHub Repository](https://github.com/jay-kestrel/ghostgeist) • [MCP Skill](skills/ghostgeist/skill.md)
 
 </div>
 
@@ -434,8 +434,11 @@ forge lint
 ghostgeist/
 ├── .env.example                     # Environment credential template
 ├── LICENSE                          # MIT Open Source License
+├── PRIVACY.md                       # Privacy Policy for Atlassian distribution & sharing
+├── TERMS.md                         # Terms of Service & MIT license notice
 ├── MASTER_PLAN.md                   # Hackathon delivery milestones & execution log
 ├── README.md                        # Master project documentation (this file)
+├── JUDGE_WALKTHROUGH.md             # Dedicated 60-second zero-config judge testing guide
 ├── DEVPOST_SUBMISSION.md            # Devpost form copy, judge evaluation guide & rubric
 ├── DEMO_VIDEO_SCRIPT.md             # Complete 10-scene video script & screen choreography
 ├── ghostgeist_demo_master.mp4       # Finalized 1080p master demonstration video (111.8s)
